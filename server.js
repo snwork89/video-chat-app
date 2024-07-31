@@ -10,6 +10,7 @@ const port = 3000;
 const app = next({ dev, hostname, port });
 const handler = app.getRequestHandler();
 
+let connectedPeersSocket = [];
 
 app.prepare().then(() => {
   const httpServer = createServer(handler);
@@ -17,8 +18,11 @@ app.prepare().then(() => {
   const io = new Server(httpServer);
 
   io.on("connection", (socket) => {
-    console.log("connection called",process.env.MONGODB_URI);
-  
+    connectedPeersSocket.push(socket.id);
+    connectedPeersSocket = [...new Set(connectedPeersSocket)];
+    socket.once("disconnect", () => {
+      connectedPeersSocket = connectedPeersSocket.filter((x) => x != socket.id);
+    });
   });
 
   httpServer
