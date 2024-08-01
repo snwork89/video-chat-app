@@ -1,0 +1,10 @@
+enum CALL_TYPE{
+    PERSONAL_CHAT,
+    PERSONAL_CALL,
+    STRANGER_CHAT,
+    STRANGER_CALL,
+
+
+}
+
+export {CALL_TYPE}

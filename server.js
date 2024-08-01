@@ -18,11 +18,29 @@ app.prepare().then(() => {
   const io = new Server(httpServer);
 
   io.on("connection", (socket) => {
+    console.log("connection called",socket.id)
     connectedPeersSocket.push(socket.id);
     connectedPeersSocket = [...new Set(connectedPeersSocket)];
     socket.once("disconnect", () => {
       connectedPeersSocket = connectedPeersSocket.filter((x) => x != socket.id);
     });
+
+    socket.on('pre-offer',(data)=>{
+      console.log("data",data);
+      const {callType,otherPersonCode} = data;
+      const connectedPeer = connectedPeersSocket.find(x=>x==otherPersonCode);
+      if(connectedPeer){
+        const data = {
+          callerSocketId:socket.id,
+          callType
+        }
+        io.to(otherPersonCode).emit('pre-offer',data);
+      }
+      else{
+        console.log("SOcket id not found")
+      }
+
+    })
   });
 
   httpServer

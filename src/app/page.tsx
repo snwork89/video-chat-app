@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useRef } from "react";
 import { socket } from "../socket";
+import { CALL_TYPE } from "@/constant";
 
 export default function Home() {
+  
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const [code, setcode] = useState("");
@@ -17,10 +19,10 @@ export default function Home() {
   const [screenSharingActive, setScreenSharingActive] = useState(false);
 
   useEffect(() => {
-
+    socket.connect();
     socket.on("connect", () => {
-      console.log("connnected",socket.id)
       setcode(socket.id ?? "");
+      
     });
   }, []);
 
@@ -33,6 +35,20 @@ export default function Home() {
   ) => {
     setIsStrangerAllowed(e.target.checked);
   };
+
+  const handleOtherPersonChatClicked = ()=>{
+    console.log('chat')
+  }
+
+  const handleOtherPersonVideoCallClicked = ()=>{
+  
+    const data = {
+      callType:CALL_TYPE.PERSONAL_CALL,
+      otherPersonCode:code
+    }
+    socket.emit('pre-offer',data)
+
+  }
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
       <div className="pl-2 col-span-3 pt-10">
@@ -59,8 +75,8 @@ export default function Home() {
           />
         </div>
         <div className="flex mt-2">
-          <button className="bg-yellow-400 p-2 border rounded-md">Chat</button>
-          <button className="ml-2 bg-blue-400 p-2 rounded-md">
+          <button className="bg-yellow-400 p-2 border rounded-md" onClick={handleOtherPersonChatClicked}>Chat</button>
+          <button className="ml-2 bg-blue-400 p-2 rounded-md" onClick={handleOtherPersonVideoCallClicked}>
             Video Call
           </button>
         </div>
