@@ -29,6 +29,9 @@ app.prepare().then(() => {
       console.log("data",data);
       const {callType,otherPersonCode} = data;
       const connectedPeer = connectedPeersSocket.find(x=>x==otherPersonCode);
+      console.log("connected peer is",connectedPeer);
+      console.log("connectedPeersSocket",connectedPeersSocket)
+      
       if(connectedPeer){
         const data = {
           callerSocketId:socket.id,

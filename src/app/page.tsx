@@ -23,7 +23,11 @@ export default function Home() {
     socket.on("connect", () => {
       setcode(socket.id ?? "");
       
+      
     });
+    socket.on('pre-offer',(e)=>{
+      console.log("pre offer came",e)
+    })
   }, []);
 
   const handleCopyButtonClick = () => {
@@ -44,7 +48,7 @@ export default function Home() {
   
     const data = {
       callType:CALL_TYPE.PERSONAL_CALL,
-      otherPersonCode:code
+      otherPersonCode:otherPersonCode
     }
     socket.emit('pre-offer',data)
 
