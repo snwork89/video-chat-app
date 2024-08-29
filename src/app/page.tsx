@@ -1,35 +1,57 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { socket } from "../socket";
-import { CALL_TYPE } from "@/constant";
+import { CALL_ACTION, CALL_TYPE } from "@/constant";
 
 export default function Home() {
-  
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+
   const [code, setcode] = useState("");
+  const codeRef = useRef(code);
+
   const [otherPersonCode, setOtherPersonCode] = useState("");
   const [isStangerAllowed, setIsStrangerAllowed] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
 
-  const [localStream, setLocalStream] = useState(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [localStreamWidth, setLocalStreamWidth] = useState(200);
+  const [localStreamHeight,setLocalStreamHeight] = useState(80);
   const [remoteSteram, setRemoteStream] = useState(null);
   const [screenSharingStream, setScreenSharingSteram] = useState(null);
   const [screenSharingActive, setScreenSharingActive] = useState(false);
+
+  const [userMediaConstraints, setUserMediaConstraints] = useState({
+    audio: true,
+    video: true,
+  });
 
   useEffect(() => {
     socket.connect();
     socket.on("connect", () => {
       setcode(socket.id ?? "");
-      
-      
     });
-    socket.on('pre-offer',(e)=>{
-      console.log("pre offer came",e)
-    })
+    socket.on("pre-offer", (e) => {
+      if (confirm(`Incoming ${e.callType}`)) {
+        acceptCallHandler(e);
+      } else {
+        rejectCallHandler(e);
+      }
+    });
+
+    socket.on("pre-offer-answer", (data) => {
+      console.log("data", data);
+    });
+
+    return () => {
+      socket.off("pre-offer");
+    };
   }, []);
 
+  useEffect(() => {
+    codeRef.current = code;
+  }, [code]);
   const handleCopyButtonClick = () => {
     navigator.clipboard.writeText(code);
   };
@@ -40,19 +62,69 @@ export default function Home() {
     setIsStrangerAllowed(e.target.checked);
   };
 
-  const handleOtherPersonChatClicked = ()=>{
-    console.log('chat')
-  }
+  const handleOtherPersonChatClicked = () => {
+    console.log("chat");
+  };
 
-  const handleOtherPersonVideoCallClicked = ()=>{
-  
+  const acceptCallHandler = (e: any) => {
+    console.log("accept called with code", codeRef.current);
+    socket.emit("pre-offer-answer", {
+      callerSocketId: e.callerSocketId,
+      callAction: CALL_ACTION.CALL_ACCEPTED,
+    });
+  };
+
+  const rejectCallHandler = (e: any) => {
+    socket.emit("pre-offer-answer", {
+      callerSocketId: e.callerSocketId,
+      callAction: CALL_ACTION.CALL_REJECTED,
+    });
+  };
+
+  const handleOtherPersonVideoCallClicked = () => {
+    console.log("called");
     const data = {
-      callType:CALL_TYPE.PERSONAL_CALL,
-      otherPersonCode:otherPersonCode
-    }
-    socket.emit('pre-offer',data)
+      callType: CALL_TYPE.PERSONAL_CALL,
+      otherPersonCode: otherPersonCode,
+    };
+    socket.emit("pre-offer", data);
+  };
 
-  }
+  const setLocalPreview = () => {
+    console.log("naiv", navigator.mediaDevices.getSupportedConstraints());
+    navigator.mediaDevices
+      .getDisplayMedia(userMediaConstraints)
+      .then((stream: any) => {
+        console.log("stream ", stream);
+        setLocalStream(stream);
+      })
+      .catch((err) => {
+        console.log("not getting access to camera", err);
+      });
+  };
+
+  useEffect(() => {
+    if (localStream && localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+
+      const videoSetting = localStream.getVideoTracks()[0].getSettings();
+
+      if (videoSetting.aspectRatio) {
+        setLocalStreamHeight(
+          Math.round((localStreamWidth/videoSetting.aspectRatio) / 4) * 4
+        );
+      }
+      localVideoRef.current.addEventListener("loadedmetadata", () => {
+        localVideoRef.current?.play();
+      });
+    }
+  }, [localStream, localVideoRef]);
+
+  useEffect(() => {
+    if (navigator.mediaDevices) {
+      setLocalPreview();
+    }
+  }, [navigator.mediaDevices]);
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
       <div className="pl-2 col-span-3 pt-10">
@@ -79,8 +151,16 @@ export default function Home() {
           />
         </div>
         <div className="flex mt-2">
-          <button className="bg-yellow-400 p-2 border rounded-md" onClick={handleOtherPersonChatClicked}>Chat</button>
-          <button className="ml-2 bg-blue-400 p-2 rounded-md" onClick={handleOtherPersonVideoCallClicked}>
+          <button
+            className="bg-yellow-400 p-2 border rounded-md"
+            onClick={handleOtherPersonChatClicked}
+          >
+            Chat
+          </button>
+          <button
+            className="ml-2 bg-blue-400 p-2 rounded-md"
+            onClick={handleOtherPersonVideoCallClicked}
+          >
             Video Call
           </button>
         </div>
@@ -118,8 +198,11 @@ export default function Home() {
         <div className="bg-slate-400 absolute h-full w-full">
           <video ref={remoteVideoRef} autoPlay={true}></video>
         </div>
-        <div className="bg-red-400 absolute top-5 left-5 h-52 w-44 rounded-md">
-          <video ref={localVideoRef} muted={true}></video>
+        <div
+          className={`bg-red-400 absolute top-5 left-5 rounded-md`}
+        
+        >
+          <video height={localStreamHeight} width={localStreamWidth} ref={localVideoRef} muted={true}></video>
         </div>
 
         <div className="absolute bottom-10 w-full flex justify-evenly">
