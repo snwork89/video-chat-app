@@ -125,6 +125,10 @@ export default function Home() {
       setLocalPreview();
     }
   }, [navigator.mediaDevices]);
+ 
+  useEffect(()=>{
+    console.log("use effect")
+  },[])
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
       <div className="pl-2 col-span-3 pt-10">
