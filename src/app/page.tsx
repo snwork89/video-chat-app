@@ -39,6 +39,10 @@ export default function Home() {
     };
     const tempRemoteSteam = new MediaStream();
     setRemoteStream(tempRemoteSteam);
+
+    peerConnection.ontrack = (event)=>{
+      remoteSteram?.addTrack(event.track);
+    }
   };
 
   useEffect(() => {
