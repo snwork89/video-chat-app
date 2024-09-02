@@ -17,8 +17,8 @@ export default function Home() {
 
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [localStreamWidth, setLocalStreamWidth] = useState(200);
-  const [localStreamHeight,setLocalStreamHeight] = useState(80);
-  const [remoteSteram, setRemoteStream] = useState(null);
+  const [localStreamHeight, setLocalStreamHeight] = useState(80);
+  const [remoteSteram, setRemoteStream] = useState<MediaStream | null>(null);
   const [screenSharingStream, setScreenSharingSteram] = useState(null);
   const [screenSharingActive, setScreenSharingActive] = useState(false);
 
@@ -26,6 +26,20 @@ export default function Home() {
     audio: true,
     video: true,
   });
+
+  const createPeerConnection = () => {
+    const peerConnection = new RTCPeerConnection();
+
+    peerConnection.onicecandidate = (event) => {
+      console.log("on ice candidarte", event);
+    };
+
+    peerConnection.onconnectionstatechange = (event) => {
+      console.log("connection state changed");
+    };
+    const tempRemoteSteam = new MediaStream();
+    setRemoteStream(tempRemoteSteam);
+  };
 
   useEffect(() => {
     socket.connect();
@@ -111,7 +125,7 @@ export default function Home() {
 
       if (videoSetting.aspectRatio) {
         setLocalStreamHeight(
-          Math.round((localStreamWidth/videoSetting.aspectRatio) / 4) * 4
+          Math.round(localStreamWidth / videoSetting.aspectRatio / 4) * 4
         );
       }
       localVideoRef.current.addEventListener("loadedmetadata", () => {
@@ -121,14 +135,25 @@ export default function Home() {
   }, [localStream, localVideoRef]);
 
   useEffect(() => {
+    if (remoteSteram && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteSteram;
+
+    
+      remoteVideoRef.current.addEventListener("loadedmetadata", () => {
+        remoteVideoRef.current?.play();
+      });
+    }
+  }, [remoteSteram, remoteVideoRef]);
+
+  useEffect(() => {
     if (navigator.mediaDevices) {
       setLocalPreview();
     }
   }, [navigator.mediaDevices]);
- 
-  useEffect(()=>{
-    console.log("use effect")
-  },[])
+
+  useEffect(() => {
+    console.log("use effect");
+  }, []);
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
       <div className="pl-2 col-span-3 pt-10">
@@ -200,13 +225,14 @@ export default function Home() {
       </div>
       <div className="bg-yellow-100 col-span-6 relative">
         <div className="bg-slate-400 absolute h-full w-full">
-          <video ref={remoteVideoRef} autoPlay={true}></video>
+          <video ref={remoteVideoRef}></video>
         </div>
-        <div
-          className={`bg-red-400 absolute top-5 left-5 rounded-md`}
-        
-        >
-          <video height={localStreamHeight} width={localStreamWidth} ref={localVideoRef} muted={true}></video>
+        <div className={`bg-red-400 absolute top-5 left-5 rounded-md`}>
+          <video
+            height={localStreamHeight}
+            width={localStreamWidth}
+            ref={localVideoRef}
+          ></video>
         </div>
 
         <div className="absolute bottom-10 w-full flex justify-evenly">
