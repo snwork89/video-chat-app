@@ -27,7 +27,7 @@ export default function Home() {
     video: true,
   });
 
-  const createPeerConnection = () => {
+  const createPeerConnection = async() => {
     const peerConnection = new RTCPeerConnection();
 
     peerConnection.onicecandidate = (event) => {
@@ -43,6 +43,16 @@ export default function Home() {
     peerConnection.ontrack = (event)=>{
       remoteSteram?.addTrack(event.track);
     }
+
+    if(localStream!=null){
+      for(const track of localStream?.getTracks()){
+        peerConnection.addTrack(track,localStream);
+      }
+    }
+
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+   
   };
 
   useEffect(() => {
@@ -155,9 +165,6 @@ export default function Home() {
     }
   }, [navigator.mediaDevices]);
 
-  useEffect(() => {
-    console.log("use effect");
-  }, []);
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
       <div className="pl-2 col-span-3 pt-10">
