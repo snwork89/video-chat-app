@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { socket } from "../socket";
 import { CALL_ACTION, CALL_TYPE } from "@/constant";
+import { off } from "node:process";
 
 export default function Home() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -27,7 +28,7 @@ export default function Home() {
     video: true,
   });
 
-  const createPeerConnection = async() => {
+  const createPeerConnection = async () => {
     const peerConnection = new RTCPeerConnection();
 
     peerConnection.onicecandidate = (event) => {
@@ -40,19 +41,19 @@ export default function Home() {
     const tempRemoteSteam = new MediaStream();
     setRemoteStream(tempRemoteSteam);
 
-    peerConnection.ontrack = (event)=>{
+    peerConnection.ontrack = (event) => {
       remoteSteram?.addTrack(event.track);
-    }
+    };
 
-    if(localStream!=null){
-      for(const track of localStream?.getTracks()){
-        peerConnection.addTrack(track,localStream);
+    if (localStream != null) {
+      for (const track of localStream?.getTracks()) {
+        peerConnection.addTrack(track, localStream);
       }
     }
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-   
+    return offer;
   };
 
   useEffect(() => {
@@ -96,6 +97,7 @@ export default function Home() {
 
   const acceptCallHandler = (e: any) => {
     console.log("accept called with code", codeRef.current);
+    console.log("socket obhject is",e);
     socket.emit("pre-offer-answer", {
       callerSocketId: e.callerSocketId,
       callAction: CALL_ACTION.CALL_ACCEPTED,
@@ -109,12 +111,16 @@ export default function Home() {
     });
   };
 
-  const handleOtherPersonVideoCallClicked = () => {
+  const handleOtherPersonVideoCallClicked = async() => {
     console.log("called");
+   let createdOffer = await createPeerConnection()
     const data = {
       callType: CALL_TYPE.PERSONAL_CALL,
       otherPersonCode: otherPersonCode,
+      offerData:JSON.stringify(createdOffer)
     };
+
+    console.log("emited data is",data);
     socket.emit("pre-offer", data);
   };
 
@@ -152,7 +158,6 @@ export default function Home() {
     if (remoteSteram && remoteVideoRef.current) {
       remoteVideoRef.current.srcObject = remoteSteram;
 
-    
       remoteVideoRef.current.addEventListener("loadedmetadata", () => {
         remoteVideoRef.current?.play();
       });

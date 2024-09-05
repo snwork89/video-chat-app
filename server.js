@@ -26,21 +26,22 @@ app.prepare().then(() => {
     });
 
     socket.on("pre-offer", (data) => {
-      console.log("data", data);
+      
       const { callType, otherPersonCode } = data;
       const connectedPeer = connectedPeersSocket.find(
         (x) => x == otherPersonCode
       );
-      console.log("connected peer is", connectedPeer);
-      console.log("connectedPeersSocket", connectedPeersSocket);
+
 
       if (connectedPeer) {
-        const data = {
+        const socketData = {
+          offerData:data.offerData,
           callerSocketId: socket.id,
           callType,
+        
         };
 
-        io.to(otherPersonCode).emit("pre-offer", data);
+        io.to(otherPersonCode).emit("pre-offer", socketData);
       } else {
         console.log("SOcket id not found");
       }
