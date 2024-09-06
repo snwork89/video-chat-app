@@ -22,41 +22,58 @@ export default function Home() {
   const [remoteSteram, setRemoteStream] = useState<MediaStream | null>(null);
   const [screenSharingStream, setScreenSharingSteram] = useState(null);
   const [screenSharingActive, setScreenSharingActive] = useState(false);
-
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  // let peerConnection: RTCPeerConnection | null = null;
   const [userMediaConstraints, setUserMediaConstraints] = useState({
     audio: true,
     video: true,
   });
 
   const createPeerConnection = async () => {
-    const peerConnection = new RTCPeerConnection();
+    console.log("create peer connection called");
+    peerConnectionRef.current = new RTCPeerConnection();
 
-    peerConnection.onicecandidate = (event) => {
+    peerConnectionRef.current.onicecandidate = (event) => {
       console.log("on ice candidarte", event);
     };
 
-    peerConnection.onconnectionstatechange = (event) => {
+    peerConnectionRef.current.onconnectionstatechange = (event) => {
       console.log("connection state changed");
     };
     const tempRemoteSteam = new MediaStream();
     setRemoteStream(tempRemoteSteam);
 
-    peerConnection.ontrack = (event) => {
+    peerConnectionRef.current.ontrack = (event) => {
       remoteSteram?.addTrack(event.track);
     };
 
     if (localStream != null) {
       for (const track of localStream?.getTracks()) {
-        peerConnection.addTrack(track, localStream);
+        peerConnectionRef.current.addTrack(track, localStream);
       }
     }
 
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    return offer;
+    console.log("create peer connection called", peerConnectionRef.current);
   };
 
+  const handleCreateOffer = async (pc: RTCPeerConnection) => {
+    if (pc != null) {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      return offer;
+    }
+  };
+
+  const handleAnswer = async(data:any)=>{
+    if(peerConnectionRef.current!=null){
+      await peerConnectionRef.current?.setRemoteDescription(data.answerData);
+    }
+  }
+
   useEffect(() => {
+    if (peerConnectionRef.current == null) {
+      createPeerConnection();
+    }
     socket.connect();
     socket.on("connect", () => {
       setcode(socket.id ?? "");
@@ -70,7 +87,7 @@ export default function Home() {
     });
 
     socket.on("pre-offer-answer", (data) => {
-      console.log("data", data);
+      handleAnswer(data);
     });
 
     return () => {
@@ -95,12 +112,27 @@ export default function Home() {
     console.log("chat");
   };
 
-  const acceptCallHandler = (e: any) => {
+  const handleAcceptOffer = async (e: any) => {
+    if (peerConnectionRef.current == null) {
+      return;
+    }
+    let offerObject = e.offerData;
+
+    await peerConnectionRef.current.setRemoteDescription(offerObject);
+    const answer = await peerConnectionRef.current.createAnswer();
+
+    return answer;
+  };
+
+  const acceptCallHandler = async (e: any) => {
     console.log("accept called with code", codeRef.current);
-    console.log("socket obhject is",e);
+    console.log("socket obhject is", e);
+    let createdAnswer = await handleAcceptOffer(e);
+
     socket.emit("pre-offer-answer", {
       callerSocketId: e.callerSocketId,
       callAction: CALL_ACTION.CALL_ACCEPTED,
+      answerData: createdAnswer,
     });
   };
 
@@ -111,16 +143,19 @@ export default function Home() {
     });
   };
 
-  const handleOtherPersonVideoCallClicked = async() => {
-    console.log("called");
-   let createdOffer = await createPeerConnection()
+  const handleOtherPersonVideoCallClicked = async () => {
+    console.log("button clicked", peerConnectionRef.current);
+    if (peerConnectionRef.current == null) {
+      return;
+    }
+
+    let createdOffer = await handleCreateOffer(peerConnectionRef.current);
     const data = {
       callType: CALL_TYPE.PERSONAL_CALL,
       otherPersonCode: otherPersonCode,
-      offerData:JSON.stringify(createdOffer)
+      offerData: createdOffer,
     };
 
-    console.log("emited data is",data);
     socket.emit("pre-offer", data);
   };
 
