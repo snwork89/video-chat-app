@@ -38,7 +38,7 @@ export default function Home() {
     peerConnectionRef.current = new RTCPeerConnection(peerConnectionConfig);
 
     peerConnectionRef.current.onicecandidate = (event) => {
-      console.log("on ice candidarte", event);
+      
       if (event.candidate) {
         socket.emit("ice-candidate", {
           socketId: remotePersonCode.current,
@@ -54,8 +54,8 @@ export default function Home() {
     peerConnectionRef.current.onconnectionstatechange = (event) => {
       console.log("connection state changed");
     };
-    const tempRemoteSteam = new MediaStream();
-    setRemoteStream(tempRemoteSteam);
+  
+    setRemoteStream(new MediaStream());
 
     if (localStream != null) {
       for (const track of localStream?.getTracks()) {
@@ -75,13 +75,15 @@ export default function Home() {
   };
 
   const handleAnswer = async (data: any) => {
-    console.log("handle Answer called", data);
-    if (peerConnectionRef.current != null) {
+    
+    if (peerConnectionRef.current != null && data.answerData) {
       await peerConnectionRef.current?.setRemoteDescription(data.answerData);
     }
   };
 
   const handleReceiveIceCandidates = async (data: any) => {
+    
+    console.log("receiove ice candidatedsss", data);
     if (peerConnectionRef.current != null) {
       await peerConnectionRef.current?.addIceCandidate(data.candidate);
     }
@@ -102,13 +104,18 @@ export default function Home() {
     });
 
     socket.on("pre-offer-answer", (data) => {
+      
       handleAnswer(data);
     });
     socket.on("ice-candidate-receive", (data) => {
+      console.log("ice-candidate-receive called", data);
       handleReceiveIceCandidates(data);
     });
     return () => {
       socket.off("pre-offer");
+      socket.off("pre-offer-answer");
+      socket.off("ice-candidate-receive")
+  
     };
   }, []);
 
@@ -220,9 +227,7 @@ export default function Home() {
     }
     if (remoteStream && peerConnectionRef.current) {
       peerConnectionRef.current.ontrack = (event) => {
-
-        console.log("on track called",event.track)
-        console.log("on track remote steram",remoteStream)
+        console.log("track comming",event.track);
         remoteStream.addTrack(event.track);
       };
     }
@@ -308,7 +313,7 @@ export default function Home() {
       </div>
       <div className="bg-yellow-100 col-span-6 relative">
         <div className="bg-slate-400 absolute h-full w-full">
-          <video ref={remoteVideoRef}></video>
+          <video className="h-full w-full" ref={remoteVideoRef}></video>
         </div>
         <div className={`bg-red-400 absolute top-5 left-5 rounded-md`}>
           <video

@@ -52,22 +52,16 @@ app.prepare().then(() => {
       }
     });
 
-    socket.on("pre-offer-answer", (data) => {
-      const connectedPeer = connectedPeersSocket.find(
-        (x) => x == data.callerSocketId
-      );
-
-      if (connectedPeer) {
-        io.to(data.callerSocketId).emit("pre-offer-answer", data);
-      }
-    });
+   
     socket.on("ice-candidate",(data)=>{
+
+    
       const connectedPeer = connectedPeersSocket.find(
         (x) => x == data.socketId
       );
-
+    
       if (connectedPeer) {
-        io.to(data.callerSocketId).emit("ice-candidate-receive", data);
+        io.to(data.socketId).emit("ice-candidate-receive", data);
       }
     })
   });
