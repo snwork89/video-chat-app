@@ -19,22 +19,36 @@ export default function Home() {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [localStreamWidth, setLocalStreamWidth] = useState(200);
   const [localStreamHeight, setLocalStreamHeight] = useState(80);
-  const [remoteSteram, setRemoteStream] = useState<MediaStream | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [screenSharingStream, setScreenSharingSteram] = useState(null);
   const [screenSharingActive, setScreenSharingActive] = useState(false);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const remotePersonCode = useRef<string>("");
   // let peerConnection: RTCPeerConnection | null = null;
   const [userMediaConstraints, setUserMediaConstraints] = useState({
     audio: true,
     video: true,
   });
 
+  const peerConnectionConfig: RTCConfiguration = {
+    iceServers: [{ urls: "stun:stun.l.google.com:13902" }],
+  };
   const createPeerConnection = async () => {
     console.log("create peer connection called");
-    peerConnectionRef.current = new RTCPeerConnection();
+    peerConnectionRef.current = new RTCPeerConnection(peerConnectionConfig);
 
     peerConnectionRef.current.onicecandidate = (event) => {
       console.log("on ice candidarte", event);
+      if (event.candidate) {
+        socket.emit("ice-candidate", {
+          socketId: remotePersonCode.current,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    peerConnectionRef.current.onicecandidateerror = (event) => {
+      console.log("on ice candidarte error called", event);
     };
 
     peerConnectionRef.current.onconnectionstatechange = (event) => {
@@ -42,10 +56,6 @@ export default function Home() {
     };
     const tempRemoteSteam = new MediaStream();
     setRemoteStream(tempRemoteSteam);
-
-    peerConnectionRef.current.ontrack = (event) => {
-      remoteSteram?.addTrack(event.track);
-    };
 
     if (localStream != null) {
       for (const track of localStream?.getTracks()) {
@@ -64,21 +74,26 @@ export default function Home() {
     }
   };
 
-  const handleAnswer = async(data:any)=>{
-    if(peerConnectionRef.current!=null){
+  const handleAnswer = async (data: any) => {
+    console.log("handle Answer called", data);
+    if (peerConnectionRef.current != null) {
       await peerConnectionRef.current?.setRemoteDescription(data.answerData);
     }
-  }
+  };
+
+  const handleReceiveIceCandidates = async (data: any) => {
+    if (peerConnectionRef.current != null) {
+      await peerConnectionRef.current?.addIceCandidate(data.candidate);
+    }
+  };
 
   useEffect(() => {
-    if (peerConnectionRef.current == null) {
-      createPeerConnection();
-    }
     socket.connect();
     socket.on("connect", () => {
       setcode(socket.id ?? "");
     });
     socket.on("pre-offer", (e) => {
+      remotePersonCode.current = e.callerSocketId;
       if (confirm(`Incoming ${e.callType}`)) {
         acceptCallHandler(e);
       } else {
@@ -89,7 +104,9 @@ export default function Home() {
     socket.on("pre-offer-answer", (data) => {
       handleAnswer(data);
     });
-
+    socket.on("ice-candidate-receive", (data) => {
+      handleReceiveIceCandidates(data);
+    });
     return () => {
       socket.off("pre-offer");
     };
@@ -120,7 +137,7 @@ export default function Home() {
 
     await peerConnectionRef.current.setRemoteDescription(offerObject);
     const answer = await peerConnectionRef.current.createAnswer();
-
+    await peerConnectionRef.current.setLocalDescription(answer);
     return answer;
   };
 
@@ -186,18 +203,30 @@ export default function Home() {
       localVideoRef.current.addEventListener("loadedmetadata", () => {
         localVideoRef.current?.play();
       });
+
+      if (peerConnectionRef.current == null) {
+        createPeerConnection();
+      }
     }
-  }, [localStream, localVideoRef]);
+  }, [localStream, localVideoRef, remoteStream]);
 
   useEffect(() => {
-    if (remoteSteram && remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteSteram;
+    if (remoteStream && remoteVideoRef.current) {
+      remoteVideoRef.current.srcObject = remoteStream;
 
       remoteVideoRef.current.addEventListener("loadedmetadata", () => {
         remoteVideoRef.current?.play();
       });
     }
-  }, [remoteSteram, remoteVideoRef]);
+    if (remoteStream && peerConnectionRef.current) {
+      peerConnectionRef.current.ontrack = (event) => {
+
+        console.log("on track called",event.track)
+        console.log("on track remote steram",remoteStream)
+        remoteStream.addTrack(event.track);
+      };
+    }
+  }, [remoteStream, remoteVideoRef]);
 
   useEffect(() => {
     if (navigator.mediaDevices) {
@@ -226,7 +255,10 @@ export default function Home() {
             type="text"
             id="other-person-code"
             value={otherPersonCode}
-            onChange={(e) => setOtherPersonCode(e.target.value)}
+            onChange={(e) => {
+              remotePersonCode.current = e.target.value;
+              setOtherPersonCode(e.target.value);
+            }}
             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:border-gray-600 dark:placeholder-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500"
           />
         </div>

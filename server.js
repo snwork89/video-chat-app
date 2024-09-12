@@ -26,21 +26,16 @@ app.prepare().then(() => {
     });
 
     socket.on("pre-offer", (data) => {
-      
       const { callType, otherPersonCode } = data;
       const connectedPeer = connectedPeersSocket.find(
         (x) => x == otherPersonCode
       );
-
-
       if (connectedPeer) {
         const socketData = {
-          offerData:data.offerData,
+          offerData: data.offerData,
           callerSocketId: socket.id,
           callType,
-        
         };
-
         io.to(otherPersonCode).emit("pre-offer", socketData);
       } else {
         console.log("SOcket id not found");
@@ -56,6 +51,25 @@ app.prepare().then(() => {
         io.to(data.callerSocketId).emit("pre-offer-answer", data);
       }
     });
+
+    socket.on("pre-offer-answer", (data) => {
+      const connectedPeer = connectedPeersSocket.find(
+        (x) => x == data.callerSocketId
+      );
+
+      if (connectedPeer) {
+        io.to(data.callerSocketId).emit("pre-offer-answer", data);
+      }
+    });
+    socket.on("ice-candidate",(data)=>{
+      const connectedPeer = connectedPeersSocket.find(
+        (x) => x == data.socketId
+      );
+
+      if (connectedPeer) {
+        io.to(data.callerSocketId).emit("ice-candidate-receive", data);
+      }
+    })
   });
 
   httpServer
