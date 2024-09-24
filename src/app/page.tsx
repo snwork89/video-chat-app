@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { socket } from "../socket";
 import { CALL_ACTION, CALL_TYPE } from "@/constant";
 import { off } from "node:process";
+import { channel } from "node:diagnostics_channel";
 
 export default function Home() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -21,9 +22,11 @@ export default function Home() {
   const [localStreamHeight, setLocalStreamHeight] = useState(80);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [screenSharingStream, setScreenSharingSteram] = useState(null);
+
   const [screenSharingActive, setScreenSharingActive] = useState(false);
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
   const remotePersonCode = useRef<string>("");
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
   // let peerConnection: RTCPeerConnection | null = null;
   const [userMediaConstraints, setUserMediaConstraints] = useState({
     audio: true,
@@ -37,8 +40,26 @@ export default function Home() {
     console.log("create peer connection called");
     peerConnectionRef.current = new RTCPeerConnection(peerConnectionConfig);
 
+    let dataChannel = peerConnectionRef.current.createDataChannel("channel");
+
+    if (dataChannel !== null) {
+      dataChannel.onopen = () => {
+        console.log("connection opened");
+      };
+      dataChannel.onmessage = (e) => {
+        console.log("message received");
+      };
+    }
+
+    peerConnectionRef.current.ondatachannel = (e) => {
+      console.log("e channel", e.channel);
+      dataChannelRef.current = e.channel;
+
+      dataChannelRef.current.onmessage = (e) => {
+        console.log("message recieved");
+      };
+    };
     peerConnectionRef.current.onicecandidate = (event) => {
-      
       if (event.candidate) {
         socket.emit("ice-candidate", {
           socketId: remotePersonCode.current,
@@ -54,7 +75,7 @@ export default function Home() {
     peerConnectionRef.current.onconnectionstatechange = (event) => {
       console.log("connection state changed");
     };
-  
+
     setRemoteStream(new MediaStream());
 
     if (localStream != null) {
@@ -75,15 +96,12 @@ export default function Home() {
   };
 
   const handleAnswer = async (data: any) => {
-    
     if (peerConnectionRef.current != null && data.answerData) {
       await peerConnectionRef.current?.setRemoteDescription(data.answerData);
     }
   };
 
   const handleReceiveIceCandidates = async (data: any) => {
-    
-    console.log("receiove ice candidatedsss", data);
     if (peerConnectionRef.current != null) {
       await peerConnectionRef.current?.addIceCandidate(data.candidate);
     }
@@ -104,18 +122,15 @@ export default function Home() {
     });
 
     socket.on("pre-offer-answer", (data) => {
-      
       handleAnswer(data);
     });
     socket.on("ice-candidate-receive", (data) => {
-      console.log("ice-candidate-receive called", data);
       handleReceiveIceCandidates(data);
     });
     return () => {
       socket.off("pre-offer");
       socket.off("pre-offer-answer");
-      socket.off("ice-candidate-receive")
-  
+      socket.off("ice-candidate-receive");
     };
   }, []);
 
@@ -227,7 +242,7 @@ export default function Home() {
     }
     if (remoteStream && peerConnectionRef.current) {
       peerConnectionRef.current.ontrack = (event) => {
-        console.log("track comming",event.track);
+        console.log("track comming", event.track);
         remoteStream.addTrack(event.track);
       };
     }
@@ -238,6 +253,12 @@ export default function Home() {
       setLocalPreview();
     }
   }, [navigator.mediaDevices]);
+
+  const handleMessaegSend = () => {
+    if (dataChannelRef.current) {
+      dataChannelRef.current.send(chatMessage);
+    }
+  };
 
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
@@ -347,7 +368,10 @@ export default function Home() {
             className="rounded-md ml-2 w-100"
             onChange={(e) => setChatMessage(e.target.value)}
           />
-          <button className="ml-1 bg-yellow-400 p-2 border rounded-md">
+          <button
+            className="ml-1 bg-yellow-400 p-2 border rounded-md"
+            onClick={handleMessaegSend}
+          >
             {" "}
             Send
           </button>
