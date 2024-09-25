@@ -270,16 +270,15 @@ export default function Home() {
         { isMessageOwner: true, message: chatMessage },
       ]);
       dataChannelRef.current.send(chatMessage);
-
-      setChatMessage('');
+      setChatMessage("");
     }
   };
 
-  const handleKeyDown = (e: any)=>{
-    if(e.key=="Enter"){
-        handleMessaegSend();
+  const handleKeyDown = (e: any) => {
+    if (e.key == "Enter") {
+      handleMessaegSend();
     }
-  }
+  };
 
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
@@ -384,7 +383,7 @@ export default function Home() {
       </div>
       <div className="flex bg-blue-100 col-span-3 pb-10">
         <div>
-          {messageList.map((x,i) => (
+          {messageList.map((x, i) => (
             <div key={i}>{x.message}</div>
           ))}
         </div>
