@@ -6,6 +6,10 @@ import { CALL_ACTION, CALL_TYPE } from "@/constant";
 import { off } from "node:process";
 import { channel } from "node:diagnostics_channel";
 
+interface MessageType {
+  message: string;
+  isMessageOwner: boolean;
+}
 export default function Home() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -16,7 +20,7 @@ export default function Home() {
   const [otherPersonCode, setOtherPersonCode] = useState("");
   const [isStangerAllowed, setIsStrangerAllowed] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
-
+  const [messageList, setMessageList] = useState<MessageType[]>([]);
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [localStreamWidth, setLocalStreamWidth] = useState(200);
   const [localStreamHeight, setLocalStreamHeight] = useState(80);
@@ -40,31 +44,26 @@ export default function Home() {
     console.log("create peer connection called");
     peerConnectionRef.current = new RTCPeerConnection(peerConnectionConfig);
 
-    let dataChannel = peerConnectionRef.current.createDataChannel("channel");
-
-    if (dataChannel !== null) {
-      dataChannel.onopen = () => {
-        console.log("connection opened");
-      };
-      dataChannel.onmessage = (e) => {
-        console.log("message received");
-      };
-    }
-
-    peerConnectionRef.current.ondatachannel = (e) => {
-      console.log("e channel", e.channel);
-      dataChannelRef.current = e.channel;
-
-      dataChannelRef.current.onmessage = (e) => {
-        console.log("message recieved");
-      };
-    };
     peerConnectionRef.current.onicecandidate = (event) => {
       if (event.candidate) {
         socket.emit("ice-candidate", {
           socketId: remotePersonCode.current,
           candidate: event.candidate,
         });
+      }
+    };
+
+    peerConnectionRef.current.ondatachannel = (e) => {
+      console.log("Data channel received", e.channel);
+      if (!dataChannelRef.current) {
+        dataChannelRef.current = e.channel;
+
+        dataChannelRef.current.onmessage = (e) => {
+          setMessageList((x) => [
+            ...x,
+            { isMessageOwner: false, message: e.data },
+          ]);
+        };
       }
     };
 
@@ -114,6 +113,7 @@ export default function Home() {
     });
     socket.on("pre-offer", (e) => {
       remotePersonCode.current = e.callerSocketId;
+
       if (confirm(`Incoming ${e.callType}`)) {
         acceptCallHandler(e);
       } else {
@@ -166,6 +166,10 @@ export default function Home() {
   const acceptCallHandler = async (e: any) => {
     console.log("accept called with code", codeRef.current);
     console.log("socket obhject is", e);
+    if (peerConnectionRef.current == null) {
+      return;
+    }
+
     let createdAnswer = await handleAcceptOffer(e);
 
     socket.emit("pre-offer-answer", {
@@ -188,6 +192,11 @@ export default function Home() {
       return;
     }
 
+    dataChannelRef.current = peerConnectionRef.current.createDataChannel("dc");
+
+    dataChannelRef.current.onmessage = (e) => {
+      setMessageList((x) => [...x, { isMessageOwner: false, message: e.data }]);
+    };
     let createdOffer = await handleCreateOffer(peerConnectionRef.current);
     const data = {
       callType: CALL_TYPE.PERSONAL_CALL,
@@ -256,9 +265,21 @@ export default function Home() {
 
   const handleMessaegSend = () => {
     if (dataChannelRef.current) {
+      setMessageList((x) => [
+        ...x,
+        { isMessageOwner: true, message: chatMessage },
+      ]);
       dataChannelRef.current.send(chatMessage);
+
+      setChatMessage('');
     }
   };
+
+  const handleKeyDown = (e: any)=>{
+    if(e.key=="Enter"){
+        handleMessaegSend();
+    }
+  }
 
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
@@ -362,10 +383,17 @@ export default function Home() {
         </div>
       </div>
       <div className="flex bg-blue-100 col-span-3 pb-10">
+        <div>
+          {messageList.map((x,i) => (
+            <div key={i}>{x.message}</div>
+          ))}
+        </div>
+
         <div className="flex h-10 self-end">
           <input
             value={chatMessage}
-            className="rounded-md ml-2 w-100"
+            className="rounded-md ml-2 w-100 px-2"
+            onKeyDown={handleKeyDown}
             onChange={(e) => setChatMessage(e.target.value)}
           />
           <button
