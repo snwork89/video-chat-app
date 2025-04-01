@@ -52,18 +52,15 @@ app.prepare().then(() => {
       }
     });
 
-   
-    socket.on("ice-candidate",(data)=>{
-
-    
+    socket.on("ice-candidate", (data) => {
       const connectedPeer = connectedPeersSocket.find(
         (x) => x == data.socketId
       );
-    
+
       if (connectedPeer) {
         io.to(data.socketId).emit("ice-candidate-receive", data);
       }
-    })
+    });
   });
 
   httpServer
