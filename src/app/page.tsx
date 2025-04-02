@@ -1,284 +1,336 @@
-"use client";
+"use client"
 
-import { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { socket } from "../socket";
-import { CALL_ACTION, CALL_TYPE } from "@/constant";
-import { off } from "node:process";
-import { channel } from "node:diagnostics_channel";
+import type React from "react"
+
+import { useEffect, useState, useRef, useCallback } from "react"
+import { supabase, getUserId } from "@/lib/supabase"
+import { CALL_ACTION, CALL_TYPE } from "@/constant"
 
 interface MessageType {
-  message: string;
-  isMessageOwner: boolean;
+  message: string
+  isMessageOwner: boolean
 }
+
 export default function Home() {
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  const localVideoRef = useRef<HTMLVideoElement>(null)
 
-  const [code, setcode] = useState("");
-  const codeRef = useRef(code);
+  const [code, setCode] = useState("")
+  const codeRef = useRef(code)
 
-  const [otherPersonCode, setOtherPersonCode] = useState("");
-  const [isStangerAllowed, setIsStrangerAllowed] = useState(false);
-  const [chatMessage, setChatMessage] = useState("");
-  const [messageList, setMessageList] = useState<MessageType[]>([]);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [localStreamWidth, setLocalStreamWidth] = useState(200);
-  const [localStreamHeight, setLocalStreamHeight] = useState(80);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
-  const [screenSharingStream, setScreenSharingSteram] = useState(null);
+  const [otherPersonCode, setOtherPersonCode] = useState("")
+  const [isStangerAllowed, setIsStrangerAllowed] = useState(false)
+  const [chatMessage, setChatMessage] = useState("")
+  const [messageList, setMessageList] = useState<MessageType[]>([])
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
+  const [localStreamWidth, setLocalStreamWidth] = useState(200)
+  const [localStreamHeight, setLocalStreamHeight] = useState(80)
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  const [screenSharingActive, setScreenSharingActive] = useState(false)
 
-  const [screenSharingActive, setScreenSharingActive] = useState(false);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const remotePersonCode = useRef<string>("");
-  const dataChannelRef = useRef<RTCDataChannel | null>(null);
-  // let peerConnection: RTCPeerConnection | null = null;
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
+  const remotePersonCode = useRef<string>("")
+  const dataChannelRef = useRef<RTCDataChannel | null>(null)
+  const channelRef = useRef<any>(null)
+
   const [userMediaConstraints, setUserMediaConstraints] = useState({
     audio: true,
     video: true,
-  });
+  })
 
   const peerConnectionConfig: RTCConfiguration = {
     iceServers: [{ urls: "stun:stun.l.google.com:13902" }],
-  };
+  }
+
+  // Initialize Supabase Realtime channel
+  const initializeChannel = useCallback(async () => {
+    const userId = getUserId()
+    setCode(userId)
+    codeRef.current = userId
+
+    // Create a channel for this user's ID
+    const channel = supabase.channel(`rtc:${userId}`, {
+      config: {
+        broadcast: { self: true },
+      },
+    })
+
+    // Handle pre-offer messages
+    channel
+      .on("broadcast", { event: "pre-offer" }, (payload) => {
+        console.log("Received pre-offer", payload)
+        const data = payload.payload
+        remotePersonCode.current = data.callerSocketId
+
+        if (confirm(`Incoming ${data.callType}`)) {
+          acceptCallHandler(data)
+        } else {
+          rejectCallHandler(data)
+        }
+      })
+      .on("broadcast", { event: "pre-offer-answer" }, (payload) => {
+        console.log("Received pre-offer-answer", payload)
+        handleAnswer(payload.payload)
+      })
+      .on("broadcast", { event: "ice-candidate" }, (payload) => {
+        console.log("Received ice-candidate", payload)
+        handleReceiveIceCandidates(payload.payload)
+      })
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          console.log(`Subscribed to channel rtc:${userId}`)
+        }
+      })
+
+    channelRef.current = channel
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }, [])
+
   const createPeerConnection = async () => {
-    console.log("create peer connection called");
-    peerConnectionRef.current = new RTCPeerConnection(peerConnectionConfig);
+    console.log("create peer connection called")
+    peerConnectionRef.current = new RTCPeerConnection(peerConnectionConfig)
 
     peerConnectionRef.current.onicecandidate = (event) => {
       if (event.candidate) {
-        socket.emit("ice-candidate", {
-          socketId: remotePersonCode.current,
-          candidate: event.candidate,
-        });
+        // Send ICE candidate through Supabase Realtime
+        const targetChannel = supabase.channel(`rtc:${remotePersonCode.current}`)
+        targetChannel.subscribe()
+        targetChannel.send({
+          type: "broadcast",
+          event: "ice-candidate",
+          payload: {
+            socketId: codeRef.current,
+            candidate: event.candidate,
+          },
+        })
       }
-    };
+    }
 
     peerConnectionRef.current.ondatachannel = (e) => {
-      console.log("Data channel received", e.channel);
+      console.log("Data channel received", e.channel)
       if (!dataChannelRef.current) {
-        dataChannelRef.current = e.channel;
+        dataChannelRef.current = e.channel
 
         dataChannelRef.current.onmessage = (e) => {
-          setMessageList((x) => [
-            ...x,
-            { isMessageOwner: false, message: e.data },
-          ]);
-        };
+          setMessageList((x) => [...x, { isMessageOwner: false, message: e.data }])
+        }
       }
-    };
+    }
 
     peerConnectionRef.current.onicecandidateerror = (event) => {
-      console.log("on ice candidarte error called", event);
-    };
+      console.log("on ice candidate error called", event)
+    }
 
     peerConnectionRef.current.onconnectionstatechange = (event) => {
-      console.log("connection state changed");
-    };
+      console.log("connection state changed")
+    }
 
-    setRemoteStream(new MediaStream());
+    setRemoteStream(new MediaStream())
 
     if (localStream != null) {
       for (const track of localStream?.getTracks()) {
-        peerConnectionRef.current.addTrack(track, localStream);
+        peerConnectionRef.current.addTrack(track, localStream)
       }
     }
 
-    console.log("create peer connection called", peerConnectionRef.current);
-  };
+    console.log("create peer connection called", peerConnectionRef.current)
+  }
 
   const handleCreateOffer = async (pc: RTCPeerConnection) => {
     if (pc != null) {
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      return offer;
+      const offer = await pc.createOffer()
+      await pc.setLocalDescription(offer)
+      return offer
     }
-  };
+  }
 
   const handleAnswer = async (data: any) => {
     if (peerConnectionRef.current != null && data.answerData) {
-      await peerConnectionRef.current?.setRemoteDescription(data.answerData);
+      await peerConnectionRef.current?.setRemoteDescription(data.answerData)
     }
-  };
+  }
 
   const handleReceiveIceCandidates = async (data: any) => {
     if (peerConnectionRef.current != null) {
-      await peerConnectionRef.current?.addIceCandidate(data.candidate);
+      await peerConnectionRef.current?.addIceCandidate(data.candidate)
     }
-  };
+  }
 
   useEffect(() => {
-    socket.connect();
-    socket.on("connect", () => {
-      setcode(socket.id ?? "");
-    });
-    socket.on("pre-offer", (e) => {
-      remotePersonCode.current = e.callerSocketId;
+    // Initialize Supabase Realtime channel
+    const cleanup = initializeChannel()
 
-      if (confirm(`Incoming ${e.callType}`)) {
-        acceptCallHandler(e);
-      } else {
-        rejectCallHandler(e);
-      }
-    });
-
-    socket.on("pre-offer-answer", (data) => {
-      handleAnswer(data);
-    });
-    socket.on("ice-candidate-receive", (data) => {
-      handleReceiveIceCandidates(data);
-    });
     return () => {
-      socket.off("pre-offer");
-      socket.off("pre-offer-answer");
-      socket.off("ice-candidate-receive");
-    };
-  }, []);
+      // Execute cleanup function if it exists
+      cleanup.then(cleanupFn => {
+        if (cleanupFn) cleanupFn()
+      })
+    }
+  }, [initializeChannel])
 
   useEffect(() => {
-    codeRef.current = code;
-  }, [code]);
-  const handleCopyButtonClick = () => {
-    navigator.clipboard.writeText(code);
-  };
+    codeRef.current = code
+  }, [code])
 
-  const handleStrangerAllowedChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setIsStrangerAllowed(e.target.checked);
-  };
+  const handleCopyButtonClick = () => {
+    navigator.clipboard.writeText(code)
+  }
+
+  const handleStrangerAllowedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setIsStrangerAllowed(e.target.checked)
+  }
 
   const handleOtherPersonChatClicked = () => {
-    console.log("chat");
-  };
+    console.log("chat")
+  }
 
   const handleAcceptOffer = async (e: any) => {
     if (peerConnectionRef.current == null) {
-      return;
+      return
     }
-    let offerObject = e.offerData;
+    const offerObject = e.offerData
 
-    await peerConnectionRef.current.setRemoteDescription(offerObject);
-    const answer = await peerConnectionRef.current.createAnswer();
-    await peerConnectionRef.current.setLocalDescription(answer);
-    return answer;
-  };
+    await peerConnectionRef.current.setRemoteDescription(offerObject)
+    const answer = await peerConnectionRef.current.createAnswer()
+    await peerConnectionRef.current.setLocalDescription(answer)
+    return answer
+  }
 
   const acceptCallHandler = async (e: any) => {
-    console.log("accept called with code", codeRef.current);
-    console.log("socket obhject is", e);
+    console.log("accept called with code", codeRef.current)
+    console.log("socket object is", e)
     if (peerConnectionRef.current == null) {
-      return;
+      await createPeerConnection()
     }
 
-    let createdAnswer = await handleAcceptOffer(e);
+    const createdAnswer = await handleAcceptOffer(e)
 
-    socket.emit("pre-offer-answer", {
-      callerSocketId: e.callerSocketId,
-      callAction: CALL_ACTION.CALL_ACCEPTED,
-      answerData: createdAnswer,
-    });
-  };
+    // Send pre-offer-answer through Supabase Realtime
+    const targetChannel = supabase.channel(`rtc:${e.callerSocketId}`)
+    targetChannel.subscribe()
+    targetChannel.send({
+      type: "broadcast",
+      event: "pre-offer-answer",
+      payload: {
+        callerSocketId: e.callerSocketId,
+        callAction: CALL_ACTION.CALL_ACCEPTED,
+        answerData: createdAnswer,
+      },
+    })
+  }
 
   const rejectCallHandler = (e: any) => {
-    socket.emit("pre-offer-answer", {
-      callerSocketId: e.callerSocketId,
-      callAction: CALL_ACTION.CALL_REJECTED,
-    });
-  };
+    // Send pre-offer-answer through Supabase Realtime
+    const targetChannel = supabase.channel(`rtc:${e.callerSocketId}`)
+    targetChannel.subscribe()
+    targetChannel.send({
+      type: "broadcast",
+      event: "pre-offer-answer",
+      payload: {
+        callerSocketId: codeRef.current,
+        callAction: CALL_ACTION.CALL_REJECTED,
+      },
+    })
+  }
 
   const handleOtherPersonVideoCallClicked = async () => {
-    console.log("button clicked", peerConnectionRef.current);
+    console.log("button clicked", peerConnectionRef.current)
     if (peerConnectionRef.current == null) {
-      return;
+      await createPeerConnection()
     }
 
-    dataChannelRef.current = peerConnectionRef.current.createDataChannel("dc");
+    dataChannelRef.current = peerConnectionRef.current!.createDataChannel("dc")
 
     dataChannelRef.current.onmessage = (e) => {
-      setMessageList((x) => [...x, { isMessageOwner: false, message: e.data }]);
-    };
-    let createdOffer = await handleCreateOffer(peerConnectionRef.current);
-    const data = {
-      callType: CALL_TYPE.PERSONAL_CALL,
-      otherPersonCode: otherPersonCode,
-      offerData: createdOffer,
-    };
+      setMessageList((x) => [...x, { isMessageOwner: false, message: e.data }])
+    }
 
-    socket.emit("pre-offer", data);
-  };
+    const createdOffer = await handleCreateOffer(peerConnectionRef.current!)
+
+    // Send pre-offer through Supabase Realtime
+    const targetChannel = supabase.channel(`rtc:${otherPersonCode}`)
+    targetChannel.subscribe()
+    targetChannel.send({
+      type: "broadcast",
+      event: "pre-offer",
+      payload: {
+        callType: CALL_TYPE.PERSONAL_CALL,
+        callerSocketId: codeRef.current,
+        offerData: createdOffer,
+      },
+    })
+  }
 
   const setLocalPreview = () => {
-    console.log("naiv", navigator.mediaDevices.getSupportedConstraints());
+    console.log("naiv", navigator.mediaDevices.getSupportedConstraints())
     navigator.mediaDevices
       .getDisplayMedia(userMediaConstraints)
       .then((stream: any) => {
-        console.log("stream ", stream);
-        setLocalStream(stream);
+        console.log("stream ", stream)
+        setLocalStream(stream)
       })
       .catch((err) => {
-        console.log("not getting access to camera", err);
-      });
-  };
+        console.log("not getting access to camera", err)
+      })
+  }
 
   useEffect(() => {
     if (localStream && localVideoRef.current) {
-      localVideoRef.current.srcObject = localStream;
+      localVideoRef.current.srcObject = localStream
 
-      const videoSetting = localStream.getVideoTracks()[0].getSettings();
+      const videoSetting = localStream.getVideoTracks()[0].getSettings()
 
       if (videoSetting.aspectRatio) {
-        setLocalStreamHeight(
-          Math.round(localStreamWidth / videoSetting.aspectRatio / 4) * 4
-        );
+        setLocalStreamHeight(Math.round(localStreamWidth / videoSetting.aspectRatio / 4) * 4)
       }
       localVideoRef.current.addEventListener("loadedmetadata", () => {
-        localVideoRef.current?.play();
-      });
+        localVideoRef.current?.play()
+      })
 
       if (peerConnectionRef.current == null) {
-        createPeerConnection();
+        createPeerConnection()
       }
     }
-  }, [localStream, localVideoRef, remoteStream]);
+  }, [localStream, localVideoRef, remoteStream])
 
   useEffect(() => {
     if (remoteStream && remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.srcObject = remoteStream
 
       remoteVideoRef.current.addEventListener("loadedmetadata", () => {
-        remoteVideoRef.current?.play();
-      });
+        remoteVideoRef.current?.play()
+      })
     }
     if (remoteStream && peerConnectionRef.current) {
       peerConnectionRef.current.ontrack = (event) => {
-        console.log("track comming", event.track);
-        remoteStream.addTrack(event.track);
-      };
+        console.log("track coming", event.track)
+        remoteStream.addTrack(event.track)
+      }
     }
-  }, [remoteStream, remoteVideoRef]);
+  }, [remoteStream, remoteVideoRef])
 
   useEffect(() => {
     if (navigator.mediaDevices) {
-      setLocalPreview();
+      setLocalPreview()
     }
-  }, [navigator.mediaDevices]);
+  }, [navigator.mediaDevices])
 
-  const handleMessaegSend = () => {
+  const handleMessageSend = () => {
     if (dataChannelRef.current) {
-      setMessageList((x) => [
-        ...x,
-        { isMessageOwner: true, message: chatMessage },
-      ]);
-      dataChannelRef.current.send(chatMessage);
-      setChatMessage("");
+      setMessageList((x) => [...x, { isMessageOwner: true, message: chatMessage }])
+      dataChannelRef.current.send(chatMessage)
+      setChatMessage("")
     }
-  };
+  }
 
   const handleKeyDown = (e: any) => {
     if (e.key == "Enter") {
-      handleMessaegSend();
+      handleMessageSend()
     }
-  };
+  }
 
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-1">
@@ -291,10 +343,7 @@ export default function Home() {
           </button>
         </div>
         <div className="mt-10">
-          <label
-            htmlFor="other-person-code"
-            className="block mb-2 text-sm font-medium text-gray-900"
-          >
+          <label htmlFor="other-person-code" className="block mb-2 text-sm font-medium text-gray-900">
             Other Person's Code
           </label>
           <input
@@ -302,37 +351,27 @@ export default function Home() {
             id="other-person-code"
             value={otherPersonCode}
             onChange={(e) => {
-              remotePersonCode.current = e.target.value;
-              setOtherPersonCode(e.target.value);
+              remotePersonCode.current = e.target.value
+              setOtherPersonCode(e.target.value)
             }}
             className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:border-gray-600 dark:placeholder-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500"
           />
         </div>
         <div className="flex mt-2">
-          <button
-            className="bg-yellow-400 p-2 border rounded-md"
-            onClick={handleOtherPersonChatClicked}
-          >
+          <button className="bg-yellow-400 p-2 border rounded-md" onClick={handleOtherPersonChatClicked}>
             Chat
           </button>
-          <button
-            className="ml-2 bg-blue-400 p-2 rounded-md"
-            onClick={handleOtherPersonVideoCallClicked}
-          >
+          <button className="ml-2 bg-blue-400 p-2 rounded-md" onClick={handleOtherPersonVideoCallClicked}>
             Video Call
           </button>
         </div>
 
         <div className="mt-10">
-          <div className="block mb-2 text-sm font-medium text-gray-900">
-            Stanger
-          </div>
+          <div className="block mb-2 text-sm font-medium text-gray-900">Stanger</div>
         </div>
         <div className="flex mt-2">
           <button className="bg-yellow-400 p-2 border rounded-md">Chat</button>
-          <button className="ml-2 bg-blue-400 p-2 rounded-md">
-            Video Call
-          </button>
+          <button className="ml-2 bg-blue-400 p-2 rounded-md">Video Call</button>
         </div>
 
         <div className="mt-20 flex items-center">
@@ -344,10 +383,7 @@ export default function Home() {
             value=""
             className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
           />
-          <label
-            htmlFor="isStangerAllowed"
-            className="ms-2 text-sm font-medium text-gray-90"
-          >
+          <label htmlFor="isStangerAllowed" className="ms-2 text-sm font-medium text-gray-90">
             Allow Stranger To Call
           </label>
         </div>
@@ -357,28 +393,15 @@ export default function Home() {
           <video className="h-full w-full" ref={remoteVideoRef}></video>
         </div>
         <div className={`bg-red-400 absolute top-5 left-5 rounded-md`}>
-          <video
-            height={localStreamHeight}
-            width={localStreamWidth}
-            ref={localVideoRef}
-          ></video>
+          <video height={localStreamHeight} width={localStreamWidth} ref={localVideoRef}></video>
         </div>
 
         <div className="absolute bottom-10 w-full flex justify-evenly">
           <button className="bg-yellow-400 p-2 border rounded-md">Mic</button>
-          <button className="bg-yellow-400 p-2 border rounded-md">
-            Camera
-          </button>
-          <button className="bg-yellow-400 p-2 border rounded-md">
-            End Call
-          </button>
-          <button className="bg-yellow-400 p-2 border rounded-md">
-            Switch Camera
-          </button>
-          <button className="bg-yellow-400 p-2 border rounded-md">
-            {" "}
-            Record
-          </button>
+          <button className="bg-yellow-400 p-2 border rounded-md">Camera</button>
+          <button className="bg-yellow-400 p-2 border rounded-md">End Call</button>
+          <button className="bg-yellow-400 p-2 border rounded-md">Switch Camera</button>
+          <button className="bg-yellow-400 p-2 border rounded-md"> Record</button>
         </div>
       </div>
       <div className="flex bg-blue-100 col-span-3 pb-10">
@@ -395,15 +418,13 @@ export default function Home() {
             onKeyDown={handleKeyDown}
             onChange={(e) => setChatMessage(e.target.value)}
           />
-          <button
-            className="ml-1 bg-yellow-400 p-2 border rounded-md"
-            onClick={handleMessaegSend}
-          >
+          <button className="ml-1 bg-yellow-400 p-2 border rounded-md" onClick={handleMessageSend}>
             {" "}
             Send
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
+
