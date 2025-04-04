@@ -75,10 +75,4 @@ export const ConfirmDialogProvider = ({ children }: { children: ReactNode }) => 
   );
 };
 
-export const useConfirmDialog = (): ConfirmDialogFn => {
-  const context = useContext(ConfirmDialogContext);
-  if (!context) {
-    throw new Error("useConfirmDialog must be used within a ConfirmDialogProvider");
-  }
-  return context;
-};
+
