@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import AutoClosePopover from "@/components/autoClosePopover";
 
 interface MessageType {
   message: string;
@@ -36,8 +37,6 @@ interface MessageType {
 export default function Home() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
-
-  const [isPopoverOpen, setIsPopoverOpen] = useState<boolean>(false);
 
   const [code, setCode] = useState("");
   const codeRef = useRef(code);
@@ -50,6 +49,8 @@ export default function Home() {
   const [localStreamWidth, setLocalStreamWidth] = useState(200);
   const [localStreamHeight, setLocalStreamHeight] = useState(80);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+
+  
 
   const [screenSharingActive, setScreenSharingActive] = useState(false);
   const [isMicOn, setIsMicOn] = useState(true);
@@ -209,6 +210,7 @@ export default function Home() {
   }, [code]);
 
   const handleCopyButtonClick = () => {
+    
     navigator.clipboard.writeText(code);
   };
 
@@ -378,14 +380,6 @@ export default function Home() {
     setIsCameraOn(!isCameraOn);
   };
 
-  const handlePopoverOpen = () => {
-    setIsPopoverOpen(true);
-
-    setTimeout(() => {
-      setIsPopoverOpen(false);
-    }, 600);
-  };
-
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
       {/* Sidebar */}
@@ -396,21 +390,20 @@ export default function Home() {
             {code}
           </div>
 
-          <Popover open={isPopoverOpen}>
-            <PopoverTrigger asChild onClick={handlePopoverOpen}>
+          <AutoClosePopover
+            text="Copied to clipboard"
+            onTriggerClick={handleCopyButtonClick}
+            triggerElement={
               <Button
                 variant="outline"
                 size="icon"
                 className="ml-2"
-                onClick={handleCopyButtonClick}
+             
               >
                 <Copy size={18} />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto px-2 py-1 bg-green-400">
-              Copied to clipboard{" "}
-            </PopoverContent>
-          </Popover>
+            }
+          />
         </div>
 
         <div className="mt-8">
