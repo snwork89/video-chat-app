@@ -28,6 +28,8 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import AutoClosePopover from "@/components/autoClosePopover";
+import { useConfirmDialog } from "@/components/confirmationDialogProvider";
+
 
 interface MessageType {
   message: string;
@@ -37,6 +39,7 @@ interface MessageType {
 export default function Home() {
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const confirm = useConfirmDialog();
 
   const [code, setCode] = useState("");
   const codeRef = useRef(code);
@@ -86,12 +89,19 @@ export default function Home() {
 
     // Handle pre-offer messages
     channel
-      .on("broadcast", { event: "pre-offer" }, (payload) => {
+      .on("broadcast", { event: "pre-offer" }, async(payload) => {
         console.log("Received pre-offer", payload);
         const data = payload.payload;
         remotePersonCode.current = data.callerSocketId;
 
-        if (confirm(`Incoming ${data.callType}`)) {
+        const result = await confirm({
+          title: `Incoming ${data.callType} Call`,
+          description: `Do you want to accept the incoming ${data.callType} call?`,
+          confirmText: "Accept",
+          cancelText: "Reject",
+        });
+    
+        if (result) {
           acceptCallHandler(data);
         } else {
           rejectCallHandler(data);
@@ -567,6 +577,9 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+
+  
     </div>
   );
 }
