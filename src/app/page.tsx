@@ -5,6 +5,22 @@ import type React from "react"
 import { useEffect, useState, useRef, useCallback } from "react"
 import { supabase, getUserId } from "@/lib/supabase"
 import { CALL_ACTION, CALL_TYPE } from "@/constant"
+import {
+  Mic,
+  MicOff,
+  Video,
+  VideoOff,
+  PhoneOff,
+  FlipHorizontal,
+  RepeatIcon as Record,
+  Copy,
+  MessageSquare,
+  VideoIcon,
+} from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { cn } from "@/lib/utils"
 
 interface MessageType {
   message: string
@@ -26,8 +42,10 @@ export default function Home() {
   const [localStreamWidth, setLocalStreamWidth] = useState(200)
   const [localStreamHeight, setLocalStreamHeight] = useState(80)
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  
   const [screenSharingActive, setScreenSharingActive] = useState(false)
-
+  const [isMicOn, setIsMicOn] = useState(true)
+  const [isCameraOn, setIsCameraOn] = useState(true)
   const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
   const remotePersonCode = useRef<string>("")
   const dataChannelRef = useRef<RTCDataChannel | null>(null)
@@ -45,6 +63,8 @@ export default function Home() {
   // Initialize Supabase Realtime channel
   const initializeChannel = useCallback(async () => {
     const userId = getUserId()
+
+    console.log("userid is",userId);
     setCode(userId)
     codeRef.current = userId
 
@@ -179,8 +199,8 @@ export default function Home() {
     navigator.clipboard.writeText(code)
   }
 
-  const handleStrangerAllowedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setIsStrangerAllowed(e.target.checked)
+  const handleStrangerAllowedChange = () => {
+    setIsStrangerAllowed(!isStangerAllowed)
   }
 
   const handleOtherPersonChatClicked = () => {
@@ -332,21 +352,31 @@ export default function Home() {
     }
   }
 
+  const toggleMic = () => {
+    setIsMicOn(!isMicOn)
+  }
+
+  const toggleCamera = () => {
+    setIsCameraOn(!isCameraOn)
+  }
+
   return (
-    <div className="w-screen h-screen grid grid-cols-12 gap-1">
-      <div className="pl-2 col-span-3 pt-10">
-        <div>Personal Code</div>
-        <div className="flex mt-2">
-          <div>{code}</div>
-          <button className="bg-red-300 ml-2" onClick={handleCopyButtonClick}>
-            Copy
-          </button>
+    <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
+      {/* Sidebar */}
+      <div className="col-span-2 pt-6 px-4 border-r border-gray-200">
+        <div className="font-medium text-lg">Personal Code</div>
+        <div className="flex mt-2 items-center">
+          <div className="bg-gray-100 px-3 py-2 rounded-lg flex-1 font-mono">{code}</div>
+          <Button variant="outline" size="icon" className="ml-2" onClick={handleCopyButtonClick}>
+            <Copy size={18} />
+          </Button>
         </div>
-        <div className="mt-10">
-          <label htmlFor="other-person-code" className="block mb-2 text-sm font-medium text-gray-900">
+
+        <div className="mt-8">
+          <label htmlFor="other-person-code" className="block mb-2 text-sm font-medium">
             Other Person's Code
           </label>
-          <input
+          <Input
             type="text"
             id="other-person-code"
             value={otherPersonCode}
@@ -354,74 +384,121 @@ export default function Home() {
               remotePersonCode.current = e.target.value
               setOtherPersonCode(e.target.value)
             }}
-            className="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:border-gray-600 dark:placeholder-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500"
+            className="bg-white"
           />
         </div>
-        <div className="flex mt-2">
-          <button className="bg-yellow-400 p-2 border rounded-md" onClick={handleOtherPersonChatClicked}>
+
+        <div className="flex mt-3 gap-2">
+          <Button variant="outline" className="flex items-center gap-1" onClick={handleOtherPersonChatClicked}>
+            <MessageSquare size={18} />
             Chat
-          </button>
-          <button className="ml-2 bg-blue-400 p-2 rounded-md" onClick={handleOtherPersonVideoCallClicked}>
+          </Button>
+          <Button variant="outline" className="flex items-center gap-1" onClick={handleOtherPersonVideoCallClicked}>
+            <VideoIcon size={18} />
             Video Call
-          </button>
+          </Button>
         </div>
 
-        <div className="mt-10">
-          <div className="block mb-2 text-sm font-medium text-gray-900">Stanger</div>
-        </div>
-        <div className="flex mt-2">
-          <button className="bg-yellow-400 p-2 border rounded-md">Chat</button>
-          <button className="ml-2 bg-blue-400 p-2 rounded-md">Video Call</button>
+        <div className="mt-8">
+          <div className="block mb-2 text-sm font-medium">Stranger</div>
         </div>
 
-        <div className="mt-20 flex items-center">
-          <input
-            onChange={handleStrangerAllowedChange}
-            checked={isStangerAllowed}
-            id="isStangerAllowed"
-            type="checkbox"
-            value=""
-            className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-          />
-          <label htmlFor="isStangerAllowed" className="ms-2 text-sm font-medium text-gray-90">
+        <div className="flex mt-2 gap-2">
+          <Button variant="outline" className="flex items-center gap-1">
+            <MessageSquare size={18} />
+            Chat
+          </Button>
+          <Button variant="outline" className="flex items-center gap-1">
+            <VideoIcon size={18} />
+            Video Call
+          </Button>
+        </div>
+
+        <div className="mt-12 flex items-center">
+          <Checkbox id="isStrangerAllowed" checked={isStangerAllowed} onCheckedChange={handleStrangerAllowedChange} />
+          <label htmlFor="isStrangerAllowed" className="ml-2 text-sm">
             Allow Stranger To Call
           </label>
         </div>
       </div>
-      <div className="bg-yellow-100 col-span-6 relative">
-        <div className="bg-slate-400 absolute h-full w-full">
-          <video className="h-full w-full" ref={remoteVideoRef}></video>
-        </div>
-        <div className={`bg-red-400 absolute top-5 left-5 rounded-md`}>
-          <video height={localStreamHeight} width={localStreamWidth} ref={localVideoRef}></video>
+
+      {/* Video Area */}
+      <div className="col-span-8 relative rounded-xl overflow-hidden border border-gray-200 shadow-md">
+        <div className="absolute h-full w-full bg-gray-100">
+          <video className="h-full w-full object-cover" ref={remoteVideoRef}></video>
         </div>
 
-        <div className="absolute bottom-10 w-full flex justify-evenly">
-          <button className="bg-yellow-400 p-2 border rounded-md">Mic</button>
-          <button className="bg-yellow-400 p-2 border rounded-md">Camera</button>
-          <button className="bg-yellow-400 p-2 border rounded-md">End Call</button>
-          <button className="bg-yellow-400 p-2 border rounded-md">Switch Camera</button>
-          <button className="bg-yellow-400 p-2 border rounded-md"> Record</button>
+        <div className="absolute top-5 left-5">
+          <div className="rounded-lg overflow-hidden shadow-lg border border-gray-200">
+            <video
+              height={localStreamHeight}
+              width={localStreamWidth}
+              ref={localVideoRef}
+              className="bg-gray-800"
+            ></video>
+          </div>
+        </div>
+
+        <div className="absolute bottom-6 w-full flex justify-center gap-3">
+          <Button
+            variant={isMicOn ? "outline" : "secondary"}
+            size="icon"
+            className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
+            onClick={toggleMic}
+          >
+            {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
+          </Button>
+
+          <Button
+            variant={isCameraOn ? "outline" : "secondary"}
+            size="icon"
+            className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
+            onClick={toggleCamera}
+          >
+            {isCameraOn ? <Video size={20} /> : <VideoOff size={20} />}
+          </Button>
+
+          <Button variant="destructive" size="icon" className="rounded-full h-12 w-12">
+            <PhoneOff size={20} />
+          </Button>
+
+          <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white hover:bg-gray-100">
+            <FlipHorizontal size={20} />
+          </Button>
+
+          <Button variant="outline" size="icon" className="rounded-full h-12 w-12 bg-white hover:bg-gray-100">
+            <Record size={20} />
+          </Button>
         </div>
       </div>
-      <div className="flex bg-blue-100 col-span-3 pb-10">
-        <div>
+
+      {/* Chat Area */}
+      <div className="col-span-2 flex flex-col border-l border-gray-200 h-full">
+        <div className="flex-1 overflow-y-auto p-4">
           {messageList.map((x, i) => (
-            <div key={i}>{x.message}</div>
+            <div
+              key={i}
+              className={cn(
+                "mb-2 p-3 rounded-lg max-w-[80%]",
+                i % 2 === 0 ? "bg-gray-100 text-gray-900 self-start" : "bg-gray-800 text-white self-end ml-auto",
+              )}
+            >
+              {x.message}
+            </div>
           ))}
         </div>
 
-        <div className="flex h-10 self-end">
-          <input
-            value={chatMessage}
-            className="rounded-md ml-2 w-100 px-2"
-            onKeyDown={handleKeyDown}
-            onChange={(e) => setChatMessage(e.target.value)}
-          />
-          <button className="ml-1 bg-yellow-400 p-2 border rounded-md" onClick={handleMessageSend}>
-            {" "}
-            Send
-          </button>
+        <div className="p-4 border-t border-gray-200">
+          <div className="flex gap-2">
+            <Input
+              value={chatMessage}
+              className="flex-1"
+              placeholder="Type a message..."
+              onKeyDown={handleKeyDown}
+              onChange={(e) => setChatMessage(e.target.value)}
+            />
+            <Button onClick={handleMessageSend}>Send</Button>
+          </div>
         </div>
       </div>
     </div>
