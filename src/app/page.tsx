@@ -37,36 +37,37 @@ interface MessageType {
 }
 
 export default function Home() {
-  const remoteVideoRef = useRef<HTMLVideoElement>(null);
-  const localVideoRef = useRef<HTMLVideoElement>(null);
-  const confirm = useConfirmDialog();
+  const remoteVideoRef = useRef<HTMLVideoElement>(null)
+  const localVideoRef = useRef<HTMLVideoElement>(null)
+  const confirm = useConfirmDialog()
 
-  const [code, setCode] = useState("");
-  const codeRef = useRef(code);
+  const [code, setCode] = useState("")
+  const codeRef = useRef(code)
 
-  const [otherPersonCode, setOtherPersonCode] = useState("");
-  const [isStangerAllowed, setIsStrangerAllowed] = useState(false);
-  const [chatMessage, setChatMessage] = useState("");
-  const [messageList, setMessageList] = useState<MessageType[]>([]);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [localStreamWidth, setLocalStreamWidth] = useState(200);
-  const [localStreamHeight, setLocalStreamHeight] = useState(80);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [otherPersonCode, setOtherPersonCode] = useState("")
+  const [isStangerAllowed, setIsStrangerAllowed] = useState(false)
+  const [chatMessage, setChatMessage] = useState("")
+  const [messageList, setMessageList] = useState<MessageType[]>([])
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
+  const [localStreamWidth, setLocalStreamWidth] = useState(200)
+  const [localStreamHeight, setLocalStreamHeight] = useState(80)
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
 
-  
-
-  const [screenSharingActive, setScreenSharingActive] = useState(false);
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isCameraOn, setIsCameraOn] = useState(true);
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
-  const remotePersonCode = useRef<string>("");
-  const dataChannelRef = useRef<RTCDataChannel | null>(null);
-  const channelRef = useRef<any>(null);
+  const [screenSharingActive, setScreenSharingActive] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const recordedChunksRef = useRef<BlobPart[]>([])
+  const [isMicOn, setIsMicOn] = useState(true)
+  const [isCameraOn, setIsCameraOn] = useState(true)
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
+  const remotePersonCode = useRef<string>("")
+  const dataChannelRef = useRef<RTCDataChannel | null>(null)
+  const channelRef = useRef<any>(null)
 
   const [userMediaConstraints, setUserMediaConstraints] = useState({
     audio: true,
     video: true,
-  });
+  })
 
   const peerConnectionConfig: RTCConfiguration = {
     iceServers: [{ urls: "stun:stun.l.google.com:13902" }],
@@ -435,6 +436,67 @@ export default function Home() {
     setMessageList([])
     remotePersonCode.current = ""
   }
+
+  const flipCamera = async () => {
+    if (!localStream) return
+
+    // Stop current tracks
+    localStream.getTracks().forEach((track) => track.stop())
+
+    // Define proper types for video constraints
+    type FacingModeConstraint = { facingMode: string | { exact: string } }
+
+    // Determine current facing mode with proper type checking
+    let isFrontCamera = true
+
+    if (typeof userMediaConstraints.video === "object" && userMediaConstraints.video !== null) {
+      const videoConstraint = userMediaConstraints.video as any
+
+      if (
+        typeof videoConstraint.facingMode === "object" &&
+        videoConstraint.facingMode !== null &&
+        videoConstraint.facingMode.exact === "environment"
+      ) {
+        isFrontCamera = false
+      } else if (videoConstraint.facingMode === "environment") {
+        isFrontCamera = false
+      }
+    }
+
+    // Toggle between front and back camera
+    const newFacingMode: FacingModeConstraint = isFrontCamera
+      ? { facingMode: { exact: "environment" } }
+      : { facingMode: "user" }
+
+    // Update constraints
+    setUserMediaConstraints({
+      ...userMediaConstraints,
+      video: Boolean(newFacingMode),
+    })
+
+    try {
+      // Get new stream with updated constraints
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        audio: userMediaConstraints.audio,
+        video: newFacingMode,
+      })
+
+      // Replace tracks in peer connection if it exists
+      if (peerConnectionRef.current) {
+        const senders = peerConnectionRef.current.getSenders()
+        const videoSender = senders.find((sender) => sender.track?.kind === "video")
+        if (videoSender && newStream.getVideoTracks()[0]) {
+          videoSender.replaceTrack(newStream.getVideoTracks()[0])
+        }
+      }
+
+      setLocalStream(newStream)
+    } catch (err) {
+      console.error("Error flipping camera:", err)
+    }
+  }
+
+  
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
       {/* Sidebar */}
