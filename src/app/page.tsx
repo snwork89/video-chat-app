@@ -496,6 +496,79 @@ export default function Home() {
     }
   }
 
+
+  const toggleRecording = () => {
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop()
+        mediaRecorderRef.current = null
+        setIsRecording(false)
+      }
+    } else {
+      // Start recording
+      if (!localStream && !remoteStream) return
+
+      try {
+        // Create a new stream that combines local and remote streams
+        const recordingStream = new MediaStream()
+
+        // Add tracks from remote stream if it exists
+        if (remoteStream) {
+          remoteStream.getTracks().forEach((track) => {
+            recordingStream.addTrack(track)
+          })
+        }
+
+        // Add tracks from local stream if it exists
+        if (localStream) {
+          localStream.getTracks().forEach((track) => {
+            recordingStream.addTrack(track)
+          })
+        }
+
+        const mediaRecorder = new MediaRecorder(recordingStream, {
+          mimeType: "video/webm;codecs=vp9",
+        })
+
+        mediaRecorderRef.current = mediaRecorder
+        recordedChunksRef.current = []
+
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            recordedChunksRef.current.push(event.data)
+          }
+        }
+
+        mediaRecorder.onstop = () => {
+          const blob = new Blob(recordedChunksRef.current, {
+            type: "video/webm",
+          })
+
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement("a")
+          a.style.display = "none"
+          a.href = url
+          a.download = `recording-${new Date().toISOString()}.webm`
+          document.body.appendChild(a)
+          a.click()
+
+          setTimeout(() => {
+            document.body.removeChild(a)
+            window.URL.revokeObjectURL(url)
+          }, 100)
+
+          recordedChunksRef.current = []
+        }
+
+        mediaRecorder.start()
+        setIsRecording(true)
+      } catch (err) {
+        console.error("Error starting recording:", err)
+      }
+    }
+  }
+
   
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
@@ -647,6 +720,7 @@ export default function Home() {
 
           <Button
             variant="outline"
+            onClick={toggleRecording}
             size="icon"
             className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
           >
