@@ -393,7 +393,13 @@ export default function Home() {
   }
 
   const toggleCamera = () => {
-    setIsCameraOn(!isCameraOn);
+    if (localStream) {
+      const videoTracks = localStream.getVideoTracks()
+      videoTracks.forEach((track) => {
+        track.enabled = !isCameraOn
+      })
+      setIsCameraOn(!isCameraOn)
+    }
   }
 
   const endCall = () => {
