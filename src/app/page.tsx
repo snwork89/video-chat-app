@@ -383,13 +383,22 @@ export default function Home() {
   };
 
   const toggleMic = () => {
-    setIsMicOn(!isMicOn);
-  };
+    if (localStream) {
+      const audioTracks = localStream.getAudioTracks()
+      audioTracks.forEach((track) => {
+        track.enabled = !isMicOn
+      })
+      setIsMicOn(!isMicOn)
+    }
+  }
 
   const toggleCamera = () => {
     setIsCameraOn(!isCameraOn);
-  };
+  }
 
+  const endCall = () => {
+   
+  }
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
       {/* Sidebar */}
@@ -524,6 +533,7 @@ export default function Home() {
             variant="destructive"
             size="icon"
             className="rounded-full h-12 w-12"
+            onClick={endCall}
           >
             <PhoneOff size={20} />
           </Button>
