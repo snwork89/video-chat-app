@@ -13,6 +13,8 @@ import {
   PhoneOff,
   FlipHorizontal,
   RepeatIcon as Record,
+  Circle,
+  Square,
   Copy,
   MessageSquare,
   VideoIcon,
@@ -21,15 +23,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+
 import { cn } from "@/lib/utils";
 import AutoClosePopover from "@/components/autoClosePopover";
 import { useConfirmDialog } from "@/components/confirmationDialogProvider";
-
 
 interface MessageType {
   message: string;
@@ -37,37 +34,37 @@ interface MessageType {
 }
 
 export default function Home() {
-  const remoteVideoRef = useRef<HTMLVideoElement>(null)
-  const localVideoRef = useRef<HTMLVideoElement>(null)
-  const confirm = useConfirmDialog()
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const confirm = useConfirmDialog();
 
-  const [code, setCode] = useState("")
-  const codeRef = useRef(code)
+  const [code, setCode] = useState("");
+  const codeRef = useRef(code);
 
-  const [otherPersonCode, setOtherPersonCode] = useState("")
-  const [isStangerAllowed, setIsStrangerAllowed] = useState(false)
-  const [chatMessage, setChatMessage] = useState("")
-  const [messageList, setMessageList] = useState<MessageType[]>([])
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null)
-  const [localStreamWidth, setLocalStreamWidth] = useState(200)
-  const [localStreamHeight, setLocalStreamHeight] = useState(80)
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null)
+  const [otherPersonCode, setOtherPersonCode] = useState("");
+  const [isStangerAllowed, setIsStrangerAllowed] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const [messageList, setMessageList] = useState<MessageType[]>([]);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [localStreamWidth, setLocalStreamWidth] = useState(200);
+  const [localStreamHeight, setLocalStreamHeight] = useState(80);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
 
-  const [screenSharingActive, setScreenSharingActive] = useState(false)
-  const [isRecording, setIsRecording] = useState(false)
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const recordedChunksRef = useRef<BlobPart[]>([])
-  const [isMicOn, setIsMicOn] = useState(true)
-  const [isCameraOn, setIsCameraOn] = useState(true)
-  const peerConnectionRef = useRef<RTCPeerConnection | null>(null)
-  const remotePersonCode = useRef<string>("")
-  const dataChannelRef = useRef<RTCDataChannel | null>(null)
-  const channelRef = useRef<any>(null)
+  const [screenSharingActive, setScreenSharingActive] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<BlobPart[]>([]);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isCameraOn, setIsCameraOn] = useState(true);
+  const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
+  const remotePersonCode = useRef<string>("");
+  const dataChannelRef = useRef<RTCDataChannel | null>(null);
+  const channelRef = useRef<any>(null);
 
   const [userMediaConstraints, setUserMediaConstraints] = useState({
     audio: true,
     video: true,
-  })
+  });
 
   const peerConnectionConfig: RTCConfiguration = {
     iceServers: [{ urls: "stun:stun.l.google.com:13902" }],
@@ -90,7 +87,7 @@ export default function Home() {
 
     // Handle pre-offer messages
     channel
-      .on("broadcast", { event: "pre-offer" }, async(payload) => {
+      .on("broadcast", { event: "pre-offer" }, async (payload) => {
         console.log("Received pre-offer", payload);
         const data = payload.payload;
         remotePersonCode.current = data.callerSocketId;
@@ -101,7 +98,7 @@ export default function Home() {
           confirmText: "Accept",
           cancelText: "Reject",
         });
-    
+
         if (result) {
           acceptCallHandler(data);
         } else {
@@ -221,7 +218,6 @@ export default function Home() {
   }, [code]);
 
   const handleCopyButtonClick = () => {
-    
     navigator.clipboard.writeText(code);
   };
 
@@ -385,191 +381,194 @@ export default function Home() {
 
   const toggleMic = () => {
     if (localStream) {
-      const audioTracks = localStream.getAudioTracks()
+      const audioTracks = localStream.getAudioTracks();
       audioTracks.forEach((track) => {
-        track.enabled = !isMicOn
-      })
-      setIsMicOn(!isMicOn)
+        track.enabled = !isMicOn;
+      });
+      setIsMicOn(!isMicOn);
     }
-  }
+  };
 
   const toggleCamera = () => {
     if (localStream) {
-      const videoTracks = localStream.getVideoTracks()
+      const videoTracks = localStream.getVideoTracks();
       videoTracks.forEach((track) => {
-        track.enabled = !isCameraOn
-      })
-      setIsCameraOn(!isCameraOn)
+        track.enabled = !isCameraOn;
+      });
+      setIsCameraOn(!isCameraOn);
     }
-  }
+  };
 
   const endCall = () => {
     // Close data channel
     if (dataChannelRef.current) {
-      dataChannelRef.current.close()
-      dataChannelRef.current = null
+      dataChannelRef.current.close();
+      dataChannelRef.current = null;
     }
 
     // Close peer connection
     if (peerConnectionRef.current) {
-      peerConnectionRef.current.close()
-      peerConnectionRef.current = null
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
     }
 
     // Stop all tracks in local stream
     if (localStream) {
       localStream.getTracks().forEach((track) => {
-        track.stop()
-      })
-      setLocalStream(null)
+        track.stop();
+      });
+      setLocalStream(null);
     }
 
     // Clear remote stream
     if (remoteStream) {
       remoteStream.getTracks().forEach((track) => {
-        track.stop()
-      })
-      setRemoteStream(null)
+        track.stop();
+      });
+      setRemoteStream(null);
     }
 
     // Reset state
-    setMessageList([])
-    remotePersonCode.current = ""
-  }
+    setMessageList([]);
+    remotePersonCode.current = "";
+  };
 
   const flipCamera = async () => {
-    if (!localStream) return
+    if (!localStream) return;
 
     // Stop current tracks
-    localStream.getTracks().forEach((track) => track.stop())
+    localStream.getTracks().forEach((track) => track.stop());
 
     // Define proper types for video constraints
-    type FacingModeConstraint = { facingMode: string | { exact: string } }
+    type FacingModeConstraint = { facingMode: string | { exact: string } };
 
     // Determine current facing mode with proper type checking
-    let isFrontCamera = true
+    let isFrontCamera = true;
 
-    if (typeof userMediaConstraints.video === "object" && userMediaConstraints.video !== null) {
-      const videoConstraint = userMediaConstraints.video as any
+    if (
+      typeof userMediaConstraints.video === "object" &&
+      userMediaConstraints.video !== null
+    ) {
+      const videoConstraint = userMediaConstraints.video as any;
 
       if (
         typeof videoConstraint.facingMode === "object" &&
         videoConstraint.facingMode !== null &&
         videoConstraint.facingMode.exact === "environment"
       ) {
-        isFrontCamera = false
+        isFrontCamera = false;
       } else if (videoConstraint.facingMode === "environment") {
-        isFrontCamera = false
+        isFrontCamera = false;
       }
     }
 
     // Toggle between front and back camera
     const newFacingMode: FacingModeConstraint = isFrontCamera
       ? { facingMode: { exact: "environment" } }
-      : { facingMode: "user" }
+      : { facingMode: "user" };
 
     // Update constraints
     setUserMediaConstraints({
       ...userMediaConstraints,
       video: Boolean(newFacingMode),
-    })
+    });
 
     try {
       // Get new stream with updated constraints
       const newStream = await navigator.mediaDevices.getUserMedia({
         audio: userMediaConstraints.audio,
         video: newFacingMode,
-      })
+      });
 
       // Replace tracks in peer connection if it exists
       if (peerConnectionRef.current) {
-        const senders = peerConnectionRef.current.getSenders()
-        const videoSender = senders.find((sender) => sender.track?.kind === "video")
+        const senders = peerConnectionRef.current.getSenders();
+        const videoSender = senders.find(
+          (sender) => sender.track?.kind === "video"
+        );
         if (videoSender && newStream.getVideoTracks()[0]) {
-          videoSender.replaceTrack(newStream.getVideoTracks()[0])
+          videoSender.replaceTrack(newStream.getVideoTracks()[0]);
         }
       }
 
-      setLocalStream(newStream)
+      setLocalStream(newStream);
     } catch (err) {
-      console.error("Error flipping camera:", err)
+      console.error("Error flipping camera:", err);
     }
-  }
-
+  };
 
   const toggleRecording = () => {
     if (isRecording) {
       // Stop recording
       if (mediaRecorderRef.current) {
-        mediaRecorderRef.current.stop()
-        mediaRecorderRef.current = null
-        setIsRecording(false)
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
       }
     } else {
       // Start recording
-      if (!localStream && !remoteStream) return
+      if (!localStream && !remoteStream) return;
 
       try {
         // Create a new stream that combines local and remote streams
-        const recordingStream = new MediaStream()
+        const recordingStream = new MediaStream();
 
         // Add tracks from remote stream if it exists
         if (remoteStream) {
           remoteStream.getTracks().forEach((track) => {
-            recordingStream.addTrack(track)
-          })
+            recordingStream.addTrack(track);
+          });
         }
 
         // Add tracks from local stream if it exists
         if (localStream) {
           localStream.getTracks().forEach((track) => {
-            recordingStream.addTrack(track)
-          })
+            recordingStream.addTrack(track);
+          });
         }
 
         const mediaRecorder = new MediaRecorder(recordingStream, {
           mimeType: "video/webm;codecs=vp9",
-        })
+        });
 
-        mediaRecorderRef.current = mediaRecorder
-        recordedChunksRef.current = []
+        mediaRecorderRef.current = mediaRecorder;
+        recordedChunksRef.current = [];
 
         mediaRecorder.ondataavailable = (event) => {
           if (event.data.size > 0) {
-            recordedChunksRef.current.push(event.data)
+            recordedChunksRef.current.push(event.data);
           }
-        }
+        };
 
         mediaRecorder.onstop = () => {
           const blob = new Blob(recordedChunksRef.current, {
             type: "video/webm",
-          })
+          });
 
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement("a")
-          a.style.display = "none"
-          a.href = url
-          a.download = `recording-${new Date().toISOString()}.webm`
-          document.body.appendChild(a)
-          a.click()
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.style.display = "none";
+          a.href = url;
+          a.download = `recording-${new Date().toISOString()}.webm`;
+          document.body.appendChild(a);
+          a.click();
 
           setTimeout(() => {
-            document.body.removeChild(a)
-            window.URL.revokeObjectURL(url)
-          }, 100)
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+          }, 100);
 
-          recordedChunksRef.current = []
-        }
+          recordedChunksRef.current = [];
+        };
 
-        mediaRecorder.start()
-        setIsRecording(true)
+        mediaRecorder.start();
+        setIsRecording(true);
       } catch (err) {
-        console.error("Error starting recording:", err)
+        console.error("Error starting recording:", err);
       }
     }
-  }
+  };
 
-  
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
       {/* Sidebar */}
@@ -584,12 +583,7 @@ export default function Home() {
             text="Copied to clipboard"
             onTriggerClick={handleCopyButtonClick}
             triggerElement={
-              <Button
-                variant="outline"
-                size="icon"
-                className="ml-2"
-             
-              >
+              <Button variant="outline" size="icon" className="ml-2">
                 <Copy size={18} />
               </Button>
             }
@@ -724,7 +718,11 @@ export default function Home() {
             size="icon"
             className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
           >
-            <Record size={20} />
+            {isRecording ? (
+              <Square fill="red" className="text-red-500" />
+            ) : (
+              <Circle fill="red" className="text-red-500" />
+            )}
           </Button>
         </div>
       </div>
@@ -760,9 +758,6 @@ export default function Home() {
           </div>
         </div>
       </div>
-
-
-  
     </div>
   );
 }
