@@ -403,7 +403,37 @@ export default function Home() {
   }
 
   const endCall = () => {
-   
+    // Close data channel
+    if (dataChannelRef.current) {
+      dataChannelRef.current.close()
+      dataChannelRef.current = null
+    }
+
+    // Close peer connection
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close()
+      peerConnectionRef.current = null
+    }
+
+    // Stop all tracks in local stream
+    if (localStream) {
+      localStream.getTracks().forEach((track) => {
+        track.stop()
+      })
+      setLocalStream(null)
+    }
+
+    // Clear remote stream
+    if (remoteStream) {
+      remoteStream.getTracks().forEach((track) => {
+        track.stop()
+      })
+      setRemoteStream(null)
+    }
+
+    // Reset state
+    setMessageList([])
+    remotePersonCode.current = ""
   }
   return (
     <div className="w-screen h-screen grid grid-cols-12 gap-4 bg-white text-gray-900 p-4">
