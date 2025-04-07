@@ -638,6 +638,7 @@ export default function Home() {
 
           <Button
             variant="outline"
+            onClick={flipCamera}
             size="icon"
             className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
           >
