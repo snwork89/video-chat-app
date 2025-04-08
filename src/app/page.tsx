@@ -570,196 +570,405 @@ export default function Home() {
   };
 
   return (
-    <div className="w-full h-screen flex flex-col bg-white text-gray-900">
-  <div className="flex-1 grid grid-cols-1 md:grid-cols-12 h-full">
-    {/* Sidebar */}
-    <div className="md:col-span-3 lg:col-span-2 p-4 md:p-6 border-r border-gray-200 flex flex-col overflow-y-auto">
-      <div className="font-medium text-lg">Personal Code</div>
-      <div className="flex mt-2 items-center">
-        <div className="bg-gray-100 px-3 py-2 rounded-lg flex-1 font-mono text-sm overflow-x-auto">
-          {code}
-        </div>
-
-        <AutoClosePopover
-          text="Copied to clipboard"
-          onTriggerClick={handleCopyButtonClick}
-          triggerElement={
-            <Button variant="outline" size="icon" className="ml-2 flex-shrink-0">
-              <Copy size={18} />
-            </Button>
-          }
-        />
-      </div>
-
-      <div className="mt-6">
-        <label
-          htmlFor="other-person-code"
-          className="block mb-2 text-sm font-medium"
-        >
-          Other Person's Code
-        </label>
-        <Input
-          type="text"
-          id="other-person-code"
-          value={otherPersonCode}
-          onChange={(e) => {
-            remotePersonCode.current = e.target.value;
-            setOtherPersonCode(e.target.value);
-          }}
-          className="bg-white"
-        />
-      </div>
-
-      <div className="flex mt-3 gap-2">
-        <Button
-          variant="outline"
-          className="flex items-center gap-1"
-          onClick={handleOtherPersonChatClicked}
-        >
-          <MessageSquare size={16} />
-          <span>Chat</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="flex items-center gap-1"
-          onClick={handleOtherPersonVideoCallClicked}
-        >
-          <VideoIcon size={16} />
-          <span>Video Call</span>
-        </Button>
-      </div>
-
-      <div className="mt-6">
-        <div className="block mb-2 text-sm font-medium">Stranger</div>
-      </div>
-
-      <div className="flex mt-2 gap-2">
-        <Button variant="outline" className="flex items-center gap-1">
-          <MessageSquare size={16} />
-          <span>Chat</span>
-        </Button>
-        <Button variant="outline" className="flex items-center gap-1">
-          <VideoIcon size={16} />
-          <span>Video Call</span>
-        </Button>
-      </div>
-
-      <div className="mt-auto pt-6 flex items-center">
-        <Checkbox
-          id="isStrangerAllowed"
-          checked={isStangerAllowed}
-          onCheckedChange={handleStrangerAllowedChange}
-        />
-        <label htmlFor="isStrangerAllowed" className="ml-2 text-sm">
-          Allow Stranger To Call
-        </label>
-      </div>
-    </div>
-
-    {/* Video Area */}
-    <div className="md:col-span-9 lg:col-span-7 h-[50vh] md:h-full relative bg-gray-50">
-      <div className="absolute h-full w-full">
-        <video
-          className="h-full w-full object-cover"
-          ref={remoteVideoRef}
-        ></video>
-      </div>
-
-      <div className="absolute top-4 left-4">
-        <div className="rounded-lg overflow-hidden shadow-lg border border-gray-200">
-          <video
-            height={localStreamHeight}
-            width={localStreamWidth}
-            ref={localVideoRef}
-            className="bg-gray-800 max-w-[120px] md:max-w-none"
-          ></video>
-        </div>
-      </div>
-
-      <div className="absolute bottom-6 w-full flex justify-center gap-3">
-        <Button
-          variant="outline"
-          size="icon"
-          className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
-          onClick={toggleMic}
-        >
-          {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
-        </Button>
-
-        <Button
-          variant="outline"
-          size="icon"
-          className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
-          onClick={toggleCamera}
-        >
-          {isCameraOn ? <Video size={20} /> : <VideoOff size={20} />}
-        </Button>
-
-        <Button
-          variant="destructive"
-          size="icon"
-          className="rounded-full h-12 w-12"
-          onClick={endCall}
-        >
-          <PhoneOff size={20} />
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={flipCamera}
-          size="icon"
-          className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
-        >
-          <FlipHorizontal size={20} />
-        </Button>
-
-        <Button
-          variant="outline"
-          onClick={toggleRecording}
-          size="icon"
-          className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
-        >
-          {isRecording ? (
-            <Square fill="red" className="text-red-500" />
-          ) : (
-            <Circle fill="red" className="text-red-500" />
-          )}
-        </Button>
-      </div>
-    </div>
-
-    {/* Chat Area */}
-    <div className="md:col-span-12 lg:col-span-3 flex flex-col border-l border-gray-200 h-[40vh] md:h-[30vh] lg:h-full">
-      <div className="flex-1 overflow-y-auto p-4">
-        {messageList.map((x, i) => (
-          <div
-            key={i}
-            className={cn(
-              "mb-2 p-2 rounded-lg max-w-[80%] text-sm",
-              i % 2 === 0
-                ? "bg-gray-100 text-gray-900 self-start"
-                : "bg-gray-800 text-white self-end ml-auto"
-            )}
-          >
-            {x.message}
+    <div className="w-full min-h-screen flex flex-col bg-white text-gray-900">
+      {/* Mobile layout - stacked sections */}
+      <div className="flex flex-col h-full lg:hidden">
+        {/* Sidebar content - mobile */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="font-medium text-lg mb-3">Personal Code</div>
+          <div className="flex items-center">
+            <div className="bg-gray-100 px-3 py-2 rounded-lg flex-1 font-mono text-sm overflow-x-auto">
+              {code}
+            </div>
+            <AutoClosePopover
+              text="Copied to clipboard"
+              onTriggerClick={handleCopyButtonClick}
+              triggerElement={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="ml-2 flex-shrink-0"
+                >
+                  <Copy size={18} />
+                </Button>
+              }
+            />
           </div>
-        ))}
+
+          <div className="mt-4">
+            <label
+              htmlFor="other-person-code-mobile"
+              className="block mb-2 text-sm font-medium"
+            >
+              Other Person's Code
+            </label>
+            <Input
+              type="text"
+              id="other-person-code-mobile"
+              value={otherPersonCode}
+              onChange={(e) => {
+                remotePersonCode.current = e.target.value;
+                setOtherPersonCode(e.target.value);
+              }}
+              className="bg-white"
+            />
+          </div>
+
+          <div className="flex mt-3 gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              className="flex items-center gap-1 h-10"
+              onClick={handleOtherPersonChatClicked}
+            >
+              <MessageSquare size={16} />
+              <span>Chat</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center gap-1 h-10"
+              onClick={handleOtherPersonVideoCallClicked}
+            >
+              <VideoIcon size={16} />
+              <span>Video Call</span>
+            </Button>
+          </div>
+
+          <div className="mt-4">
+            <div className="block mb-2 text-sm font-medium">Stranger</div>
+          </div>
+
+          <div className="flex mt-2 gap-2 flex-wrap">
+            <Button variant="outline" className="flex items-center gap-1 h-10">
+              <MessageSquare size={16} />
+              <span>Chat</span>
+            </Button>
+            <Button variant="outline" className="flex items-center gap-1 h-10">
+              <VideoIcon size={16} />
+              <span>Video Call</span>
+            </Button>
+          </div>
+
+          <div className="mt-4 flex items-center">
+            <Checkbox
+              id="isStrangerAllowed-mobile"
+              checked={isStangerAllowed}
+              onCheckedChange={handleStrangerAllowedChange}
+            />
+            <label htmlFor="isStrangerAllowed-mobile" className="ml-2 text-sm">
+              Allow Stranger To Call
+            </label>
+          </div>
+        </div>
+
+        {/* Video Area - mobile */}
+        <div className="h-[40vh] relative bg-gray-50">
+          <div className="absolute h-full w-full">
+            <video
+              className="h-full w-full object-cover"
+              ref={remoteVideoRef}
+            ></video>
+          </div>
+
+          <div className="absolute top-2 left-2">
+            <div className="rounded-lg overflow-hidden shadow-lg border border-gray-200">
+              <video
+                height={localStreamHeight}
+                width={localStreamWidth}
+                ref={localVideoRef}
+                className="bg-gray-800 max-w-[100px]"
+              ></video>
+            </div>
+          </div>
+
+          <div className="absolute bottom-3 w-full flex justify-center gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full h-10 w-10 bg-white hover:bg-gray-100"
+              onClick={toggleMic}
+            >
+              {isMicOn ? <Mic size={18} /> : <MicOff size={18} />}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full h-10 w-10 bg-white hover:bg-gray-100"
+              onClick={toggleCamera}
+            >
+              {isCameraOn ? <Video size={18} /> : <VideoOff size={18} />}
+            </Button>
+
+            <Button
+              variant="destructive"
+              size="icon"
+              className="rounded-full h-10 w-10"
+              onClick={endCall}
+            >
+              <PhoneOff size={18} />
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={flipCamera}
+              size="icon"
+              className="rounded-full h-10 w-10 bg-white hover:bg-gray-100"
+            >
+              <FlipHorizontal size={18} />
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={toggleRecording}
+              size="icon"
+              className="rounded-full h-10 w-10 bg-white hover:bg-gray-100"
+            >
+              {isRecording ? (
+                <Square size={18} fill="red" className="text-red-500" />
+              ) : (
+                <Circle size={18} fill="red" className="text-red-500" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Chat Area - mobile */}
+        <div className="flex-1 flex flex-col min-h-[30vh] border-t border-gray-200">
+          <div className="flex-1 overflow-y-auto p-3">
+            {messageList.map((x, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "mb-2 p-2 rounded-lg max-w-[80%] text-sm",
+                  i % 2 === 0
+                    ? "bg-gray-100 text-gray-900 self-start"
+                    : "bg-gray-800 text-white self-end ml-auto"
+                )}
+              >
+                {x.message}
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 border-t border-gray-200">
+            <div className="flex gap-2">
+              <Input
+                value={chatMessage}
+                className="flex-1"
+                placeholder="Type a message..."
+                onKeyDown={handleKeyDown}
+                onChange={(e) => setChatMessage(e.target.value)}
+              />
+              <Button
+                onClick={handleMessageSend}
+                className="bg-gray-900 hover:bg-gray-800"
+              >
+                Send
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="p-4 border-t border-gray-200">
-        <div className="flex gap-2">
-          <Input
-            value={chatMessage}
-            className="flex-1"
-            placeholder="Type a message..."
-            onKeyDown={handleKeyDown}
-            onChange={(e) => setChatMessage(e.target.value)}
-          />
-          <Button onClick={handleMessageSend} className="bg-gray-900 hover:bg-gray-800">Send</Button>
+      {/* Desktop layout - grid */}
+      <div className="hidden lg:grid lg:grid-cols-12 h-screen">
+        {/* Sidebar */}
+        <div className="col-span-2 p-6 border-r border-gray-200 flex flex-col overflow-y-auto">
+          <div className="font-medium text-lg">Personal Code</div>
+          <div className="flex mt-2 items-center">
+            <div className="bg-gray-100 px-3 py-2 rounded-lg flex-1 font-mono text-sm overflow-x-auto">
+              {code}
+            </div>
+
+            <AutoClosePopover
+              text="Copied to clipboard"
+              onTriggerClick={handleCopyButtonClick}
+              triggerElement={
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="ml-2 flex-shrink-0"
+                >
+                  <Copy size={18} />
+                </Button>
+              }
+            />
+          </div>
+
+          <div className="mt-6">
+            <label
+              htmlFor="other-person-code"
+              className="block mb-2 text-sm font-medium"
+            >
+              Other Person's Code
+            </label>
+            <Input
+              type="text"
+              id="other-person-code"
+              value={otherPersonCode}
+              onChange={(e) => {
+                remotePersonCode.current = e.target.value;
+                setOtherPersonCode(e.target.value);
+              }}
+              className="bg-white"
+            />
+          </div>
+
+          <div className="flex mt-3 gap-2">
+            <Button
+              variant="outline"
+              className="flex items-center gap-1"
+              onClick={handleOtherPersonChatClicked}
+            >
+              <MessageSquare size={16} />
+              <span>Chat</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="flex items-center gap-1"
+              onClick={handleOtherPersonVideoCallClicked}
+            >
+              <VideoIcon size={16} />
+              <span>Video Call</span>
+            </Button>
+          </div>
+
+          <div className="mt-6">
+            <div className="block mb-2 text-sm font-medium">Stranger</div>
+          </div>
+
+          <div className="flex mt-2 gap-2">
+            <Button variant="outline" className="flex items-center gap-1">
+              <MessageSquare size={16} />
+              <span>Chat</span>
+            </Button>
+            <Button variant="outline" className="flex items-center gap-1">
+              <VideoIcon size={16} />
+              <span>Video Call</span>
+            </Button>
+          </div>
+
+          <div className="mt-auto pt-6 flex items-center">
+            <Checkbox
+              id="isStrangerAllowed"
+              checked={isStangerAllowed}
+              onCheckedChange={handleStrangerAllowedChange}
+            />
+            <label htmlFor="isStrangerAllowed" className="ml-2 text-sm">
+              Allow Stranger To Call
+            </label>
+          </div>
+        </div>
+
+        {/* Video Area */}
+        <div className="col-span-7 h-full relative bg-gray-50">
+          <div className="absolute h-full w-full">
+            <video
+              className="h-full w-full object-cover"
+              ref={remoteVideoRef}
+            ></video>
+          </div>
+
+          <div className="absolute top-4 left-4">
+            <div className="rounded-lg overflow-hidden shadow-lg border border-gray-200">
+              <video
+                height={localStreamHeight}
+                width={localStreamWidth}
+                ref={localVideoRef}
+                className="bg-gray-800"
+              ></video>
+            </div>
+          </div>
+
+          <div className="absolute bottom-6 w-full flex justify-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
+              onClick={toggleMic}
+            >
+              {isMicOn ? <Mic size={20} /> : <MicOff size={20} />}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
+              onClick={toggleCamera}
+            >
+              {isCameraOn ? <Video size={20} /> : <VideoOff size={20} />}
+            </Button>
+
+            <Button
+              variant="destructive"
+              size="icon"
+              className="rounded-full h-12 w-12"
+              onClick={endCall}
+            >
+              <PhoneOff size={20} />
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={flipCamera}
+              size="icon"
+              className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
+            >
+              <FlipHorizontal size={20} />
+            </Button>
+
+            <Button
+              variant="outline"
+              onClick={toggleRecording}
+              size="icon"
+              className="rounded-full h-12 w-12 bg-white hover:bg-gray-100"
+            >
+              {isRecording ? (
+                <Square fill="red" className="text-red-500" />
+              ) : (
+                <Circle fill="red" className="text-red-500" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Chat Area */}
+        <div className="col-span-3 flex flex-col border-l border-gray-200 h-full">
+          <div className="flex-1 overflow-y-auto p-4">
+            {messageList.map((x, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "mb-2 p-2 rounded-lg max-w-[80%] text-sm",
+                  i % 2 === 0
+                    ? "bg-gray-100 text-gray-900 self-start"
+                    : "bg-gray-800 text-white self-end ml-auto"
+                )}
+              >
+                {x.message}
+              </div>
+            ))}
+          </div>
+
+          <div className="p-4 border-t border-gray-200">
+            <div className="flex gap-2">
+              <Input
+                value={chatMessage}
+                className="flex-1"
+                placeholder="Type a message..."
+                onKeyDown={handleKeyDown}
+                onChange={(e) => setChatMessage(e.target.value)}
+              />
+              <Button
+                onClick={handleMessageSend}
+                className="bg-gray-900 hover:bg-gray-800"
+              >
+                Send
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
   );
 }
