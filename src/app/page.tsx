@@ -600,7 +600,7 @@ export default function Home() {
               htmlFor="other-person-code-mobile"
               className="block mb-2 text-sm font-medium"
             >
-              Other Person's Code
+              Other Person&apos;s Code
             </label>
             <Input
               type="text"
@@ -800,7 +800,7 @@ export default function Home() {
               htmlFor="other-person-code"
               className="block mb-2 text-sm font-medium"
             >
-              Other Person's Code
+              Other Person&apos;s Code
             </label>
             <Input
               type="text"
